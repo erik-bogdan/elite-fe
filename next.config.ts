@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: 'localhost',
       },
+      {
+        protocol: 'https',
+        hostname: 'elitebeerpong.hu',
+      },
+      {
+        protocol: 'https',
+        hostname: 'elite.sorpingpong.hu',
+      },
     ],
   },
 };
