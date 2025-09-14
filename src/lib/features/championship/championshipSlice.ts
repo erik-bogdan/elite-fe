@@ -1,0 +1,323 @@
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+export interface ChampionshipGameDay {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  gameday: boolean;
+}
+
+export interface ChampionshipProperties {
+  type: 'league' | 'tournament';
+  rounds: number;
+  hasPlayoff: boolean;
+  teams: number;
+  gameDays?: ChampionshipGameDay[];
+  elimination?: number;
+  registrationClose?: string; // ISO datetime
+  regfee?: string; // free-form to allow "29.000 Ft/játékos" stb.
+  regfeeDueDate?: string; // ISO datetime
+  // New prize fields
+  nyeremeny_text?: string;
+  nyeremeny_value?: string;
+  masodik_nyeremeny_text?: string;
+  masodik_nyeremeny_value?: string;
+}
+
+export interface Match {
+  id: number;
+  homeTeam: { name: string; logo: string };
+  awayTeam: { name: string; logo: string };
+  time: string;
+  tableNumber: number;
+  round: number;
+}
+
+export interface MatchDay {
+  id: number;
+  date: string;
+  matches: Match[];
+  mvp: {
+    name: string;
+    team: string;
+    image: string;
+  };
+}
+
+export interface Championship {
+  id: string;
+  name: string;
+  logo: string;
+  slug: string;
+  seasonId: string;
+  totalTeams: number;
+  totalMatches: number;
+  completedMatches: number;
+  phase: string;
+  isStarted?: boolean;
+  knockoutRound?: number;
+  regularRound?: number;
+  progress: number;
+  properties: ChampionshipProperties;
+  teams?: {
+    name: string;
+    logo: string;
+    matches: number;
+    wins: number;
+  }[];
+  winner?: string;
+  matchDays?: MatchDay[];
+}
+
+export interface CreateChampionshipRequest {
+  name: string;
+  seasonId: string;
+  properties: ChampionshipProperties;
+  slug: string;
+}
+
+export interface UpdateChampionshipRequest extends Partial<CreateChampionshipRequest> {
+  id: string;
+}
+
+interface ChampionshipState {
+  allChampionships: Championship[];
+  selectedChampionship: Championship | null;
+  activeChampionships: Championship[];
+  completedChampionships: Championship[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+const initialState: ChampionshipState = {
+  allChampionships: [],
+  selectedChampionship: null,
+  activeChampionships: [],
+  completedChampionships: [],
+  isLoading: false,
+  error: null,
+};
+
+export const championshipSlice = createSlice({
+  name: 'championship',
+  initialState,
+  reducers: {
+    setAllChampionships: (state, action: PayloadAction<Championship[]>) => {
+      state.allChampionships = action.payload;
+      state.activeChampionships = action.payload.filter(c => c.progress < 100);
+      state.completedChampionships = action.payload.filter(c => c.progress === 100);
+    },
+    setSelectedChampionship: (state, action: PayloadAction<Championship | null>) => {
+      state.selectedChampionship = action.payload;
+    },
+    setLoading: (state, action: PayloadAction<boolean>) => {
+      state.isLoading = action.payload;
+    },
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
+    },
+  },
+});
+
+export const {
+  setAllChampionships,
+  setSelectedChampionship,
+  setLoading,
+  setError,
+} = championshipSlice.actions;
+
+export const championshipApi = createApi({
+  reducerPath: 'championshipApi',
+  baseQuery: fetchBaseQuery({
+    // A championship endpoint is a monolit API /api alatt fut a 3000-en
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api`,
+  }),
+  tagTypes: ['Championship'],
+  endpoints: (builder) => ({
+    getChampionships: builder.query<Championship[], void>({
+      query: () => '/championship',
+      providesTags: ['Championship'],
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          dispatch(setLoading(true));
+          const { data } = await queryFulfilled;
+          dispatch(setAllChampionships(data));
+        } catch (error) {
+          dispatch(setError('Failed to fetch championships'));
+        } finally {
+          dispatch(setLoading(false));
+        }
+      },
+    }),
+    getChampionshipStats: builder.query<{ championships: any[] }, void>({
+      query: () => '/championship/stats',
+      providesTags: ['Championship'],
+    }),
+    getChampionshipById: builder.query<Championship, string>({
+      query: (id) => `/championship/${id}`,
+      providesTags: ['Championship'],
+    }),
+    getLeagueTeams: builder.query<any[], string>({
+      query: (leagueId) => `/championship/teams/${leagueId}`,
+    }),
+    getAvailableTeamsForLeague: builder.query<any[], string>({
+      query: (leagueId) => `/championship/teams/${leagueId}/available`,
+    }),
+    addTeamToLeague: builder.mutation<{ success: boolean }, { leagueId: string; teamId: string }>({
+      query: ({ leagueId, teamId }) => ({
+        url: `/championship/teams/${leagueId}/${teamId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Championship']
+    }),
+    removeTeamFromLeague: builder.mutation<{ success: boolean }, { leagueId: string; teamId: string }>({
+      query: ({ leagueId, teamId }) => ({
+        url: `/championship/teams/${leagueId}/${teamId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Championship']
+    }),
+    sendInviteForLeagueTeam: builder.mutation<{ success: boolean }, { leagueTeamId: string }>({
+      query: ({ leagueTeamId }) => ({
+        url: `/championship/teams/invite/${leagueTeamId}`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Championship']
+    }),
+    previewSchedule: builder.mutation<{ schedule: any[] }, { id: string; teams: string[]; matchesPerDay: number[]; startTime: string; matchDuration: number; tables: number; dayDates?: string[] }>({
+      query: ({ id, ...payload }) => ({
+        url: `/championship/${id}/generate-schedule`,
+        method: 'POST',
+        body: payload,
+      })
+    }),
+    saveSchedule: builder.mutation<{ success: boolean; saved: number }, { id: string; schedule: any[]; dayDates?: string[] }>({
+      query: ({ id, ...payload }) => ({
+        url: `/championship/${id}/save-schedule`,
+        method: 'POST',
+        body: payload,
+      })
+    }),
+    getMatchesForLeague: builder.query<any[], string>({
+      query: (leagueId) => `/matches/league/${leagueId}`,
+      providesTags: ['Championship']
+    }),
+    getMatchByIdRaw: builder.query<any, string>({
+      query: (id) => `/matches/${id}`,
+      providesTags: ['Championship']
+    }),
+    startTracking: builder.mutation<any, { id: string }>({
+      query: ({ id }) => ({
+        url: `/matches/${id}/tracking/start`,
+        method: 'PUT'
+      }),
+      invalidatesTags: ['Championship']
+    }),
+    syncTracking: builder.mutation<any, { id: string; trackingData: any }>({
+      query: ({ id, trackingData }) => ({
+        url: `/matches/${id}/tracking/sync`,
+        method: 'PUT',
+        body: { trackingData }
+      })
+    }),
+    finishTracking: builder.mutation<any, { id: string; trackingData?: any }>({
+      query: ({ id, trackingData }) => ({
+        url: `/matches/${id}/tracking/finish`,
+        method: 'PUT',
+        body: trackingData ? { trackingData } : undefined
+      }),
+      invalidatesTags: ['Championship']
+    }),
+    getMatchMeta: builder.query<any, string>({
+      query: (matchId) => `/matches/${matchId}/meta`,
+      providesTags: ['Championship']
+    }),
+    updateMatchResult: builder.mutation<{ success?: boolean }, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/matches/${id}/result`,
+        method: 'PUT',
+        body
+      }),
+      invalidatesTags: ['Championship']
+    }),
+    getStandings: builder.query<{ standings: any[] }, string>({
+      query: (id) => `/championship/${id}/standings`,
+      providesTags: ['Championship']
+    }),
+    getStandingsByDay: builder.query<{ standings: any[] }, { id: string; date: string }>({
+      query: ({ id, date }) => `/championship/${id}/standings/day/${date}`,
+      providesTags: ['Championship']
+    }),
+    getStandingsUptoGameDay: builder.query<{ standings: any[] }, { id: string; gameDay: number }>({
+      query: ({ id, gameDay }) => `/championship/${id}/standings/upto/${gameDay}`,
+      providesTags: ['Championship']
+    }),
+    getStandingsUptoRound: builder.query<{ standings: any[] }, { id: string; round: number }>({
+      query: ({ id, round }) => `/championship/${id}/standings/upto-round/${round}`,
+      providesTags: ['Championship']
+    }),
+    getGameDayMvps: builder.query<{ mvps: any[] }, string>({
+      query: (id) => `/championship/${id}/mvps`,
+      providesTags: ['Championship']
+    }),
+    getRankSeries: builder.query<{ series: { round: number; rank: number | null }[] }, { id: string; teamId: string }>({
+      query: ({ id, teamId }) => `/championship/${id}/rank-series/${teamId}`,
+      providesTags: ['Championship']
+    }),
+    createChampionship: builder.mutation<Championship, CreateChampionshipRequest>({
+      query: (data) => ({
+        url: '/championship',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Championship'],
+    }),
+    updateChampionship: builder.mutation<Championship, UpdateChampionshipRequest>({
+      query: ({ id, ...data }) => ({
+        url: `/championship/${id}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Championship'],
+    }),
+    deleteChampionship: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/championship/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Championship'],
+    }),
+  }),
+});
+
+export const {
+  useGetChampionshipsQuery,
+  useGetChampionshipStatsQuery,
+  useGetChampionshipByIdQuery,
+  useGetLeagueTeamsQuery,
+  useGetAvailableTeamsForLeagueQuery,
+  useAddTeamToLeagueMutation,
+  useRemoveTeamFromLeagueMutation,
+  useCreateChampionshipMutation,
+  useUpdateChampionshipMutation,
+  useDeleteChampionshipMutation,
+  useSendInviteForLeagueTeamMutation,
+  usePreviewScheduleMutation,
+  useSaveScheduleMutation,
+  useGetMatchesForLeagueQuery,
+  useGetMatchByIdRawQuery,
+  useStartTrackingMutation,
+  useSyncTrackingMutation,
+  useFinishTrackingMutation,
+  useGetMatchMetaQuery,
+  useUpdateMatchResultMutation,
+  useGetStandingsQuery,
+  useGetStandingsByDayQuery,
+  useGetStandingsUptoGameDayQuery,
+  useGetStandingsUptoRoundQuery,
+  useGetGameDayMvpsQuery,
+  useGetRankSeriesQuery,
+} = championshipApi;
+
+export default championshipSlice.reducer; 
