@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'elite.sorpingpong.hu',
       },
+      {
+        protocol: 'https',
+        hostname: 'eliteapi.sorpingpong.hu',
+      },
     ],
   },
 };
