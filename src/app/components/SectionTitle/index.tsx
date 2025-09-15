@@ -22,7 +22,7 @@ export default function SectionTitle({ title, subtitle }: { title: string, subti
         <div className="relative">
             <div className=" before:content-[''] before:absolute before:top-0 before:left-[-20px] before:bottom-0 before:py-[5px] before:w-[10px] before:block before:z-[10] before:bg-[#ec6734]">
                 <div className={`text-7xl ${bebasNeue.className}`}>{title}</div>
-                {subtitle && <div className={`text-lg ${openSans.className}`}>{subtitle}</div>}
+                {subtitle && <div className={`text-lg ${openSans.className} max-w-lg`}>{subtitle}</div>}
             </div>
         </div>
 

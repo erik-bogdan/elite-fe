@@ -23,7 +23,7 @@ const teamLogoMap: Record<string, string> = {
   "KPS-STEELCITY": "/uploads/history/steel-city.png",
   "KPS-B1": "/uploads/history/kps-b1.png",
   "TE IS FIAM, SHARK!?": "/uploads/history/te-is-fiam-shark.png",
-  "LEVERGEYBLANT": "/uploads/history/leveregyblant.png",
+  "LEVEREGYBLANT": "/uploads/history/leveregyblant.png",
   "VILLÁMLOVAGOK": "/uploads/history/villamlovagok.png",
   "DUNNO": "/uploads/history/dunno.png",
   "CSICSKARÓLI": "/uploads/history/csicskaroli.png",
@@ -87,11 +87,38 @@ const bestWinRate: TopRow[] = [
   { team: "ALBERTIRSAI BPC", value: "77%", season: "2022-2023" },
 ];
 
-function Row({ idx, row }: { idx: number; row: TopRow }) {
+// Helper function to calculate proper rankings
+function calculateRankings(rows: TopRow[]): number[] {
+  const rankings: number[] = [];
+  let currentRank = 1;
+  
+  for (let i = 0; i < rows.length; i++) {
+    if (i === 0) {
+      rankings.push(1);
+    } else {
+      // Compare current value with previous value
+      const currentValue = typeof rows[i].value === 'string' ? parseFloat(rows[i].value.toString().replace('%', '')) : rows[i].value;
+      const prevValue = typeof rows[i-1].value === 'string' ? parseFloat(rows[i-1].value.toString().replace('%', '')) : rows[i-1].value;
+      
+      if (currentValue === prevValue) {
+        // Same value, same rank
+        rankings.push(rankings[i-1]);
+      } else {
+        // Different value, new rank (skip positions as needed)
+        currentRank = i + 1;
+        rankings.push(currentRank);
+      }
+    }
+  }
+  
+  return rankings;
+}
+
+function Row({ idx, row, rank }: { idx: number; row: TopRow; rank: number }) {
   const seed = encodeURIComponent(row.team.replace(/\s+/g, "-"));
   return (
     <div className="grid grid-cols-12 items-center py-2 px-2 md:px-3  hover:bg-[#FFDB11]/10 transition-colors min-w-0">
-      <div className={`${bebasNeue.className} col-span-1 text-[#FFDB11] text-lg md:text-xl`}>{idx + 1}.</div>
+      <div className={`${bebasNeue.className} col-span-1 text-[#FFDB11] text-lg md:text-xl`}>{rank}.</div>
       <div className="col-span-6 flex items-center gap-2 min-w-0">
         <div className="relative h-7 w-7 overflow-hidden flex-shrink-0">
           <Image src={abs(teamLogoMap[row.team] || teamLogoMap[row.team.toUpperCase()] || `https://picsum.photos/seed/${seed}/64`)} alt={row.team} fill sizes="28px" className="object-cover" />
@@ -105,6 +132,8 @@ function Row({ idx, row }: { idx: number; row: TopRow }) {
 }
 
 function Card({ title, rows }: { title: string; rows: TopRow[] }) {
+  const rankings = calculateRankings(rows);
+  
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -115,7 +144,7 @@ function Card({ title, rows }: { title: string; rows: TopRow[] }) {
       <div className={`${bebasNeue.className} bg-[#FFDB11]/80 text-black text-center py-3 text-2xl md:text-3xl`}>{title}</div>
       <div className="divide-y divide-white/10 max-h-[420px] md:max-h-[520px] overflow-y-auto overflow-x-hidden pr-1 md:pr-2">
         {rows.map((r, i) => (
-          <Row key={r.team + i} idx={i} row={r} />
+          <Row key={r.team + i} idx={i} row={r} rank={rankings[i]} />
         ))}
       </div>
     </motion.div>

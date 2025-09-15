@@ -96,6 +96,33 @@ const rows: MVPRow[] = [
 
 ];
 
+// Helper function to calculate proper rankings based on total MVP count
+function calculateMVPRankings(rows: MVPRow[]): number[] {
+  const rankings: number[] = [];
+  let currentRank = 1;
+  
+  for (let i = 0; i < rows.length; i++) {
+    if (i === 0) {
+      rankings.push(1);
+    } else {
+      // Compare current total MVP count with previous total
+      const currentTotal = rows[i].day + rows[i].final;
+      const prevTotal = rows[i-1].day + rows[i-1].final;
+      
+      if (currentTotal === prevTotal) {
+        // Same total, same rank
+        rankings.push(rankings[i-1]);
+      } else {
+        // Different total, new rank (skip positions as needed)
+        currentRank = i + 1;
+        rankings.push(currentRank);
+      }
+    }
+  }
+  
+  return rankings;
+}
+
 function Tally({ count, color = "#fff" }: { count: number; color?: string }) {
   return (
     <div className="flex flex-wrap gap-1.5 justify-center">
@@ -107,6 +134,8 @@ function Tally({ count, color = "#fff" }: { count: number; color?: string }) {
 }
 
 export default function StepMVPs({ onBack, onNext }: { onBack: () => void; onNext: () => void }) {
+  const rankings = calculateMVPRankings(rows);
+  
   return (
     <div className="w-full max-w-6xl mx-auto">
       <motion.h3
@@ -130,7 +159,8 @@ export default function StepMVPs({ onBack, onNext }: { onBack: () => void; onNex
         <div className="divide-y divide-white/10 max-h-[520px] overflow-y-auto">
           {rows.map((r, idx) => (
             <div key={r.name} className="grid grid-cols-12 gap-3 items-center px-3 md:px-4 py-3 hover:bg-[#FFDB11]/10 transition-colors">
-              <div className={`${bebasNeue.className} col-span-5 text-white text-lg md:text-2xl flex items-center gap-2 flex-wrap`}>{idx + 1}. {r.name}
+              <div className={`${bebasNeue.className} col-span-5 text-white text-lg md:text-2xl flex items-center gap-2 flex-wrap`}>
+                <span className="text-[#FFDB11]">{rankings[idx]}.</span> {r.name}
                 <span className="flex items-center gap-1 ml-2">
                   {(playerTeams[r.name] || []).map((teamKey, i) => {
                     const path = teamLogoMap[teamKey];

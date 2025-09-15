@@ -42,14 +42,23 @@ export default function StepSeason({ onBack, onNext, gameDayCount, hasPlayoff, e
           )}
 
           {hasPlayoff ? (
-            line(
-              <>
-                <span className="text-white text-2xl md:text-4xl">AZ ALAPSZAKASZ VÉGÉN</span>
-                <span className="block text-[#FFDB11] text-2xl md:text-4xl mt-2">A TABELLA TOP NYOLC CSAPATA JUT A RÁJÁTSZÁSBA, AHOL</span>
-                <span className="block text-[#FFDB11] text-2xl md:text-4xl">NÉGY NYERTIG TARTÓ PÁRHARCBAN KÜZDENEK</span>
-                <span className="block text-white text-2xl md:text-4xl">TOVÁBB A BAJNOKI CÍMÉRT.</span>
-              </>
-            )
+            <>
+              {line(
+                <>
+                  <span className="text-white text-2xl md:text-4xl">AZ ALAPSZAKASZ VÉGÉN</span>
+                  <span className="block text-[#FFDB11] text-2xl md:text-4xl mt-2">A TABELLA TOP NYOLC CSAPATA JUT A RÁJÁTSZÁSBA, AHOL</span>
+                  <span className="block text-[#FFDB11] text-2xl md:text-4xl">NÉGY NYERTIG TARTÓ PÁRHARCBAN KÜZDENEK</span>
+                  <span className="block text-white text-2xl md:text-4xl">TOVÁBB A BAJNOKI CÍMÉRT.</span>
+                </>
+              )}
+              {line(
+                <>
+                  <span className="text-white text-2xl md:text-4xl">AZ ALAPSZAKASZ VÉGÉN AZ UTOLSÓ CSAPAT BÚCSÚZIK,</span>
+                  <span className="block text-[#FFDB11] text-2xl md:text-4xl mt-2">MÍG AZ UTOLSÓ ELŐTTI OSZTÁLYOZÓT JÁTSZIK</span>
+                  <span className="block text-[#FFDB11] text-2xl md:text-4xl">AZ ELITE 2 MÁSODIK HELYEZETTJÉVEL.</span>
+                </>
+              )}
+            </>
           ) : (
             line(
               <>

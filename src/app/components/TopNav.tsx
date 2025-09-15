@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bebas_Neue } from "next/font/google";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -13,16 +14,28 @@ const bebasNeue = Bebas_Neue({
 
 export default function TopNav() {
   const [visible, setVisible] = useState(false);
+  const pathname = usePathname();
+  const isHomepage = pathname === "/";
+  const isHiddenRoute = pathname.startsWith("/auth") || pathname.startsWith("/application") || pathname.startsWith("/admin");
 
   useEffect(() => {
-    const onScroll = () => {
-      const threshold = typeof window !== "undefined" ? window.innerHeight * 1.5 : 600;
-      setVisible(window.scrollY > threshold);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (isHiddenRoute) {
+      // On hidden routes, never show
+      setVisible(false);
+    } else if (isHomepage) {
+      // On homepage, show after scrolling
+      const onScroll = () => {
+        const threshold = typeof window !== "undefined" ? window.innerHeight * 1.5 : 600;
+        setVisible(window.scrollY > threshold);
+      };
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      return () => window.removeEventListener("scroll", onScroll);
+    } else {
+      // On other pages, always show
+      setVisible(true);
+    }
+  }, [isHomepage, isHiddenRoute]);
 
   return (
     <AnimatePresence>
@@ -38,9 +51,10 @@ export default function TopNav() {
             <div className="py-3 flex items-center justify-between text-white">
               <Link href="/" className={`${bebasNeue.className} text-2xl tracking-wide`}><Image src="/logo.svg" alt="Elite Logo" width={200} height={200} /></Link>
               <div className="hidden md:flex items-center gap-8 text-3xl">
-                <Link href="#" className={`${bebasNeue.className} hover:text-white text-white/85`}>ELITE Beerpong</Link>
-                <Link href="#" className={`${bebasNeue.className} hover:text-white text-white/85`}>MECCSEK</Link>
-                <Link href="#" className={`${bebasNeue.className} hover:text-white text-white/85`}>Tabella</Link>
+                <Link href="/" className={`${bebasNeue.className} hover:text-white text-white/85`}>ELITE Beerpong</Link>
+                <Link href="/szabalyok" className={`${bebasNeue.className} hover:text-white text-white/85`}>SZABÁLYOK</Link>
+                {/*<Link href="#" className={`${bebasNeue.className} hover:text-white text-white/85`}>MECCSEK</Link>
+                <Link href="#" className={`${bebasNeue.className} hover:text-white text-white/85`}>Tabella</Link>*/}
               </div>
               <Link href="/auth/login" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                 <div className="h-8 w-8 rounded-full bg-white/15 border border-white/20 grid place-items-center text-white/80 text-xs">
