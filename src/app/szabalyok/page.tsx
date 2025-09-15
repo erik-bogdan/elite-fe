@@ -277,13 +277,13 @@ export default function SzabalyokPage() {
               </p>
               <p className="text-[#FFDB11] font-semibold">A visszaszállásra két fő szabály vonatkozik:</p>
               <p>
-                Abban az esetben, ha kettő, vagy több pohár marad az ellenfél oldalán az ún. „Hirtelen halál" szabály lép életbe: 
+                Abban az esetben, ha kettő, vagy több pohár marad az ellenfél oldalán az ún. &ldquo;Hirtelen halál&rdquo; szabály lép életbe: 
                 bármelyik játékos elkezdheti a visszaszállást, a játék akkor ér véget, ha egy dobás kimarad. A játékosoknak felváltva kell dobniuk. 
                 Ez alól kivétel, ha 3 pohárnál történt a kiszállás, ilyenkor ugyanis ha mindkét játékos betalál, eldönthetik, 
                 hogy ki dobjon az utolsó pohárra a hosszabbításért.
               </p>
               <p>
-                Ha egy pohár marad az ellenfélnél, az ún. „Dobj, amennyi labdád van" szabály lép életbe: ha az első dobó szállt ki, 
+                Ha egy pohár marad az ellenfélnél, az ún. &ldquo;Dobj, amennyi labdád van&rdquo; szabály lép életbe: ha az első dobó szállt ki, 
                 egy lehetőség van visszaszállni, tetszőleges játékosnak. Ha a második dobás volt a kiszálló, akkor mindkét játékos próbálkozhat visszaszállással.
               </p>
               <p>Sikeres visszaszállás esetén a játék hosszabbítással folytatódik.</p>
@@ -315,7 +315,7 @@ export default function SzabalyokPage() {
               <p>
                 <span className="text-[#FFDB11] font-semibold">2 pohár van CSAPAT1 oldalán, 1 pohár van CSAPAT2 oldalán.</span> 
                 CSAPAT1 A-játékosa dob és kihagyja, majd CSAPAT1 B-játékosa kiszáll. Mivel 2 pohár maradt fenn, mikor megtörtént a kiszállás, 
-                a „Hirtelen halál" szabály lép életbe: CSAPAT2 A-játékosa dob, ha kihagyja, vége. Ha bedobja ő is és B-játékos is, hosszabítás következik.
+                a &ldquo;Hirtelen halál&rdquo; szabály lép életbe: CSAPAT2 A-játékosa dob, ha kihagyja, vége. Ha bedobja ő is és B-játékos is, hosszabítás következik.
               </p>
               <p>
                 <span className="text-[#FFDB11] font-semibold">2 pohár van mindkét csapat előtt.</span> 
@@ -327,7 +327,7 @@ export default function SzabalyokPage() {
               </p>
               <p>
                 <span className="text-[#FFDB11] font-semibold">1-1 pohár van a csapatok előtt.</span> 
-                CSAPAT1 A-játékosa kihagyja, B-játékos kiszáll. Mivel csak egy pohár van az asztalon a „Dobj, ahány labdád van" szabály lép életbe. 
+                CSAPAT1 A-játékosa kihagyja, B-játékos kiszáll. Mivel csak egy pohár van az asztalon a &ldquo;Dobj, ahány labdád van&rdquo; szabály lép életbe. 
                 Jelen esetben CSAPAT2-nék 2 labdája van, így mindkét játékos próbálkozhat.
               </p>
               <p>
@@ -355,7 +355,7 @@ export default function SzabalyokPage() {
                 Alapvetően nincs időlimit, de a játékosoknak ésszerű és sportszerű időn belül kell eldobni a labdát.
               </p>
               <p>
-                Bizonyos esetekben a szervezők dönthetnek úgy, hogy időkorlátot vezetnek be. Ilyenkor a játékvezető feladata mérni a „támadóidőt", 
+                Bizonyos esetekben a szervezők dönthetnek úgy, hogy időkorlátot vezetnek be. Ilyenkor a játékvezető feladata mérni a &ldquo;támadóidőt&rdquo;, 
                 mely 30 másodpercet jelent dobásonként.
               </p>
             </div>
