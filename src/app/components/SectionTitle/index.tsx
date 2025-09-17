@@ -20,9 +20,9 @@ export default function SectionTitle({ title, subtitle }: { title: string, subti
 
     return (
         <div className="relative">
-            <div className=" before:content-[''] before:absolute before:top-0 before:left-[-20px] before:bottom-0 before:py-[5px] before:w-[10px] before:block before:z-[10] before:bg-[#ec6734]">
-                <div className={`text-7xl ${bebasNeue.className}`}>{title}</div>
-                {subtitle && <div className={`text-lg ${openSans.className} max-w-lg`}>{subtitle}</div>}
+            <div className=" before:content-[''] before:absolute before:top-0 before:left-[-10px] sm:before:left-[-15px] md:before:left-[-20px] before:bottom-0 before:py-[3px] sm:before:py-[4px] md:before:py-[5px] before:w-[6px] sm:before:w-[8px] md:before:w-[10px] before:block before:z-[10] before:bg-[#ec6734]">
+                <div className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl ${bebasNeue.className}`}>{title}</div>
+                {subtitle && <div className={`text-sm sm:text-base md:text-lg ${openSans.className} max-w-xs sm:max-w-sm md:max-w-lg mt-2 sm:mt-3`}>{subtitle}</div>}
             </div>
         </div>
 

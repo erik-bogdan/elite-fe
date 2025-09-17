@@ -35,23 +35,30 @@ export default function StepPrizes({ onBack, onNext, championshipName, firstPriz
         <div className="space-y-8 md:space-y-10">
           <Line>
             {firstPrizeText || `A ${championshipName || 'Bajnokság'} nyertese tárgynyereményeken túl pénznyereményben részesül.`} <br />
-            {firstPrizeValue ? (<span className="text-[#FFDB11]">({firstPrizeValue})</span>) : null}
+            {firstPrizeValue ? (<span className="text-[#FFDB11]">{firstPrizeValue}</span>) : null}
           </Line>
           <Line>
-            {secondPrizeText || 'A második helyezett csapat pénznyereményben részesül.'} {secondPrizeValue ? (<span className="text-[#FFDB11]">({secondPrizeValue})</span>) : null}
+            {secondPrizeText || 'A második helyezett csapat pénznyereményben részesül.'} {secondPrizeValue ? (<span className="text-[#FFDB11]">{secondPrizeValue}</span>) : null}
           </Line>
           <Line>
-            MINDEN FORDULÓBAN DÍJAZZUK AZ ADOTT JÁTÉKNAP LEGJOBB JÁTÉKOSÁT, AKIT AZ <br />
-            ADOTT NAPON A LEGJOBB MÉRLEGEL ZÁRÓ CSAPATBÓL VÁLASZTUNK.
+            {!secondPrizeValue ? (
+              <span>A Bajnokság első 3 helyezettje italnyereményben részesül.</span>
+            ) : (
+              <span>
+                MINDEN FORDULÓBAN DÍJAZZUK AZ ADOTT JÁTÉKNAP LEGJOBB JÁTÉKOSÁT, AKIT AZ <br />
+                ADOTT NAPON A LEGJOBB MÉRLEGEL ZÁRÓ CSAPATBÓL VÁLASZTUNK.
+              </span>
+            )}
+
           </Line>
         </div>
 
-      
+
       </motion.div>
       <div className="flex justify-between mt-10">
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="px-7 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold" onClick={onBack}>Vissza</motion.button>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="px-7 py-3 rounded-xl bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white font-bold" onClick={onNext}>Következő</motion.button>
-        </div>
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="px-7 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold" onClick={onBack}>Vissza</motion.button>
+        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} className="px-7 py-3 rounded-xl bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white font-bold" onClick={onNext}>Következő</motion.button>
+      </div>
     </div>
   );
 }

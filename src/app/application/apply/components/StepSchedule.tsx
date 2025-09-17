@@ -46,7 +46,7 @@ export default function StepSchedule({ onBack, onNext, gameDays }: { onBack: () 
         <div className="space-y-3 md:space-y-4">
           {(gameDays || []).length > 0 ? (
             (gameDays || []).map((gd, idx) => (
-              <Row key={idx} label={`${gd.gameday ? `GAMEDAY ${idx + 1}.:` : `${gd.name || 'ESEMÉNY'}:`}`} value={formatHuDate(gd.date)} />
+              <Row key={idx} label={`${gd.gameday ? gd.name: `${gd.name || 'ESEMÉNY'}:`}`} value={formatHuDate(gd.date)} />
             ))
           ) : (
             <>

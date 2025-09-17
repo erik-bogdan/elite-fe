@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from 'react';
 import ChampionModal from '../components/ChampionModal';
 import { useGetChampionshipsQuery, useGetLeagueTeamsQuery } from '../lib/features/championship/championshipSlice';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 const bebasNeue = Bebas_Neue({
   weight: "400",
   subsets: ["latin"],
@@ -186,18 +187,18 @@ function CurrentTeams() {
           >
             {/* League Header */}
             <div className="text-center">
-              <h3 className={`${bebasNeue.className} text-[#FFDB11] text-2xl md:text-6xl mb-2`}>
+              <h3 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl md:text-4xl lg:text-6xl mb-2`}>
                 {championship.name}
               </h3>
               {(championship as any).subName && (
-                <p className="text-white/80 text-lg md:text-xl">
+                <p className="text-white/80 text-sm sm:text-base md:text-lg lg:text-xl">
                   {(championship as any).subName}
                 </p>
               )}
             </div>
 
             {/* Teams Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 md:gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
               {teams.map((team, teamIndex) => (
                 <motion.div
                   key={team.id}
@@ -208,19 +209,19 @@ function CurrentTeams() {
                   className="flex flex-col items-center group cursor-pointer"
                 >
                   {/* Team Logo */}
-                  <div className="relative w-20 h-20 md:w-24 md:h-24 mb-3 overflow-hidden   transition-all duration-300 group-hover:scale-110">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mb-2 sm:mb-3 overflow-hidden transition-all duration-300 group-hover:scale-110">
                     <Image 
                       src={team.logo ? abs(team.logo) : "/elitelogo.png"} 
                       alt={team.name} 
                       fill
                       className="object-contain group-hover:brightness-110 transition-all duration-300"
-                      sizes="96px"
+                      sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 96px"
                     />
                   </div>
                   
                   {/* Team Name */}
                   <div className="text-center">
-                    <h4 className={`${bebasNeue.className} text-white text-sm md:text-base font-bold leading-tight group-hover:text-[#FFDB11] transition-colors duration-300`}>
+                    <h4 className={`${bebasNeue.className} text-white text-xs sm:text-sm md:text-base font-bold leading-tight group-hover:text-[#FFDB11] transition-colors duration-300`}>
                       {team.name}
                     </h4>
                   </div>
@@ -279,65 +280,33 @@ function ImageCarousel() {
 
 function ChampionsTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [isScrolling, setIsScrolling] = useState(true);
   const [selectedChampion, setSelectedChampion] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const [scrollLeftPosition, setScrollLeftPosition] = useState(0);
   const [currentChampionIndex, setCurrentChampionIndex] = useState(0);
 
-  useEffect(() => {
-    if (!scrollRef.current) return;
+  // Navigation functions
+  const scrollLeft = () => {
+    if (scrollRef.current) {
+      const scrollAmount = scrollRef.current.clientWidth * 0.8; // Scroll 80% of visible width
+      scrollRef.current.scrollBy({
+        left: -scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
-    const scrollContainer = scrollRef.current;
-    let scrollDirection = 1; // 1 for right, -1 for left
-    let scrollSpeed = 1; // pixels per frame
-    let animationId: number;
-
-    const scroll = () => {
-      if (!isScrolling || isDragging) {
-        animationId = requestAnimationFrame(scroll);
-        return;
-      }
-
-      const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
-      const currentScroll = scrollContainer.scrollLeft;
-
-      // Only scroll if there's actually content to scroll
-      if (maxScroll > 0) {
-        // Change direction at the ends with some buffer
-        if (currentScroll >= maxScroll - 5) {
-          scrollDirection = -1;
-        } else if (currentScroll <= 5) {
-          scrollDirection = 1;
-        }
-
-        scrollContainer.scrollLeft += scrollDirection * scrollSpeed;
-      }
-      
-      animationId = requestAnimationFrame(scroll);
-    };
-
-    // Start scrolling after a short delay
-    const startTimeout = setTimeout(() => {
-      animationId = requestAnimationFrame(scroll);
-    }, 1000);
-
-    // Pause on hover
-    const handleMouseEnter = () => setIsScrolling(false);
-    const handleMouseLeave = () => setIsScrolling(true);
-
-    scrollContainer.addEventListener('mouseenter', handleMouseEnter);
-    scrollContainer.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      clearTimeout(startTimeout);
-      cancelAnimationFrame(animationId);
-      scrollContainer.removeEventListener('mouseenter', handleMouseEnter);
-      scrollContainer.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, [isScrolling, isDragging]);
+  const scrollRight = () => {
+    if (scrollRef.current) {
+      const scrollAmount = scrollRef.current.clientWidth * 0.8; // Scroll 80% of visible width
+      scrollRef.current.scrollBy({
+        left: scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleChampionClick = (champion: any, index: number) => {
     setSelectedChampion(champion);
@@ -365,9 +334,8 @@ function ChampionsTimeline() {
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollRef.current) return;
     setIsDragging(true);
-    setIsScrolling(false);
     setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
+    setScrollLeftPosition(scrollRef.current.scrollLeft);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -375,15 +343,34 @@ function ChampionsTimeline() {
     e.preventDefault();
     const x = e.pageX - scrollRef.current.offsetLeft;
     const walk = (x - startX) * 2;
-    scrollRef.current.scrollLeft = scrollLeft - walk;
+    scrollRef.current.scrollLeft = scrollLeftPosition - walk;
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
-    setTimeout(() => setIsScrolling(true), 2000);
   };
 
   const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.touches[0].pageX - scrollRef.current.offsetLeft);
+    setScrollLeftPosition(scrollRef.current.scrollLeft);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.touches[0].pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; // Slower on mobile
+    scrollRef.current.scrollLeft = scrollLeftPosition - walk;
+  };
+
+  const handleTouchEnd = () => {
     setIsDragging(false);
   };
 
@@ -426,7 +413,7 @@ function ChampionsTimeline() {
       
       
       {/* Timeline line */}
-      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-[#ff5c1a] via-[#FFDB11] to-[#ff5c1a] transform -translate-y-1/2"></div>
+      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-[#ff5c1a] via-[#FFDB11] to-[#ff5c1a] transform -translate-y-1/2 mt-[-42px]"></div>
       
       <div 
         ref={scrollRef}
@@ -434,12 +421,16 @@ function ChampionsTimeline() {
         style={{ 
           scrollBehavior: 'smooth',
           scrollbarWidth: 'none',
-          msOverflowStyle: 'none'
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch'
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {championsData.map((champion, index) => {
           const isEven = index % 2 === 0;
@@ -452,13 +443,13 @@ function ChampionsTimeline() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
               viewport={{ once: true }}
-              className="flex flex-col items-center relative min-w-[120px] md:min-w-[150px] flex-shrink-0 mx-4 md:mx-8"
+              className="flex flex-col items-center relative min-w-[100px] sm:min-w-[120px] md:min-w-[150px] flex-shrink-0 mx-2 sm:mx-4 md:mx-8"
             >
               {/* Champion section (above or below line) */}
-              <div className={`flex flex-col items-center ${isEven ? 'mb-[130px]' : 'mb-[130px]'}`}>
+              <div className={`flex flex-col items-center ${isEven ? 'mb-[100px] sm:mb-[130px]' : 'mb-[100px] sm:mb-[130px]'}`}>
                 {/* Team logo */}
                 <div 
-                  className="relative w-16 h-16 md:w-20 md:h-20 mb-3 overflow-hidden cursor-pointer hover:scale-110 transition-transform duration-200"
+                  className="relative w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 mb-2 sm:mb-3 overflow-hidden cursor-pointer hover:scale-110 transition-transform duration-200"
                   onClick={() => handleChampionClick(champion, index)}
                 >
                   <Image 
@@ -466,30 +457,55 @@ function ChampionsTimeline() {
                     alt={champion.champion} 
                     fill
                     className="object-contain"
-                    sizes="80px"
+                    sizes="(max-width: 640px) 48px, (max-width: 768px) 64px, 80px"
                   />
                 </div>
                 
                 {/* Team name */}
                 <div className={`${bebasNeue.className} text-center`}>
-                  <div className="text-[#FFDB11] text-sm md:text-lg font-bold leading-tight max-w-[120px] md:max-w-[150px]">
+                  <div className="text-[#FFDB11] text-xs sm:text-sm md:text-lg font-bold leading-tight max-w-[100px] sm:max-w-[120px] md:max-w-[150px]">
                     {champion.champion}
                   </div>
                 </div>
               </div>
 
               {/* Timeline dot - positioned on the line */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-[-10px] w-4 h-4 bg-[#FFDB11] rounded-full border-2 border-black shadow-lg z-10"></div>
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-[-10px] w-3 h-3 sm:w-4 sm:h-4 bg-[#FFDB11] rounded-full border-2 border-black shadow-lg z-10"></div>
 
               {/* Season section (always below line) */}
               <div className="flex flex-col items-center">
-                <div className={`${bebasNeue.className} text-white text-sm md:text-base font-bold  mt-[-70px]`}>
+                <div className={`${bebasNeue.className} text-white text-xs sm:text-sm md:text-base font-bold mt-[-60px] sm:mt-[-70px]`}>
                   {champion.season}
                 </div>
               </div>
             </motion.div>
           );
         })}
+      </div>
+
+      {/* Navigation arrows */}
+      <div className="flex justify-center items-center gap-8 mt-8">
+        <button
+          onClick={scrollLeft}
+          className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[#FFDB11] hover:bg-[#FFDB11]/80 text-black rounded-full transition-all duration-300 hover:scale-110 shadow-lg"
+          aria-label="Previous champions"
+        >
+          <FiChevronLeft size={24} />
+        </button>
+        
+        <div className="text-center">
+          <p className={`${bebasNeue.className} text-white text-sm sm:text-base`}>
+            Lapozz a bajnokok között
+          </p>
+        </div>
+        
+        <button
+          onClick={scrollRight}
+          className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[#FFDB11] hover:bg-[#FFDB11]/80 text-black rounded-full transition-all duration-300 hover:scale-110 shadow-lg"
+          aria-label="Next champions"
+        >
+          <FiChevronRight size={24} />
+        </button>
       </div>
     </div>
   );
@@ -518,12 +534,12 @@ export default function Home() {
               >
                 <SectionTitle title="ELITE Beerpong" subtitle="Európa és Magyarország legelső profi beerpong bajnoksága" />
                 
-                <div className="mt-8 space-y-6">
+                <div className="mt-6 md:mt-8 space-y-4 md:space-y-6">
                   <motion.p
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
-                    className="text-white text-lg md:text-xl leading-relaxed"
+                    className="text-white text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed"
                   >
                     Tizenkét évvel ezelőtt néhány magyar egyetemista fejében fogant meg az ötlet, hogy a beerpongnak nemcsak a kollégiumi bulik asztalán van helye. Úgy érezték, hogy ez a játék jóval több annál, mint laza szórakozás: szabályokra, szervezettségre és versenyszellemre építve akár valódi sporttá is válhat.
                   </motion.p>
@@ -532,7 +548,7 @@ export default function Home() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
-                    className="text-white text-lg md:text-xl leading-relaxed"
+                    className="text-white text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed"
                   >
                     Elhatározták, hogy itthon új szintre emelik a beerpongot. Először baráti versenyeket szerveztek, majd hamar kialakult egy lelkes közösség, amely már nemcsak a jó hangulatért, hanem a győzelemért és a bajnoki címért is poharat ragadott. Így indult el az a folyamat, amelynek csúcsa mára az <span className="text-[#FFDB11] font-bold">ELITE Beerpong</span>, a hazai sörpingpong legmagasabb szintű bajnoksága lett.
                   </motion.p>
@@ -625,10 +641,10 @@ export default function Home() {
                     className="object-contain"
                   />
                 </div>
-                <h3 className={`${bebasNeue.className} text-[#FFDB11] text-2xl md:text-4xl mb-4`}>
+                <h3 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl md:text-4xl mb-4`}>
                   HAMAROSAN...
                 </h3>
-                <p className="text-white/80 text-lg md:text-xl leading-relaxed">
+                <p className="text-white/80 text-sm sm:text-base md:text-lg lg:text-xl leading-relaxed">
                   A mérkőzések és eredmények megjelenítése hamarosan elérhető lesz. 
                   <br />
                   <span className="text-[#FFDB11]">Kövess minket, hogy ne maradj le semmiről!</span>
@@ -661,16 +677,16 @@ export default function Home() {
                   viewport={{ once: true }}
                   className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-6 lg:p-8"
                 >
-                  <div className="text-center mb-8">
-                    <h3 className={`${bebasNeue.className} text-[#FFDB11] text-2xl md:text-3xl mb-2`}>
+                  <div className="text-center mb-6 md:mb-8">
+                    <h3 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl md:text-3xl mb-2`}>
                       ELITE 1
                     </h3>
-                    <p className="text-white/60 text-sm md:text-base">
+                    <p className="text-white/60 text-xs sm:text-sm md:text-base">
                     </p>
                   </div>
 
-                  <div className="text-center py-12">
-                    <div className="relative w-24 h-24 mx-auto mb-6 opacity-40">
+                  <div className="text-center py-8 md:py-12">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 opacity-40">
                       <Image 
                         src="/elitelogo.png" 
                         alt="ELITE Logo" 
@@ -678,10 +694,10 @@ export default function Home() {
                         className="object-contain"
                       />
                     </div>
-                    <h4 className={`${bebasNeue.className} text-[#FFDB11] text-xl md:text-2xl mb-3`}>
+                    <h4 className={`${bebasNeue.className} text-[#FFDB11] text-lg sm:text-xl md:text-2xl mb-2 md:mb-3`}>
                       HAMAROSAN...
                     </h4>
-                    <p className="text-white/70 text-sm md:text-base">
+                    <p className="text-white/70 text-xs sm:text-sm md:text-base">
                       A tabella adatok hamarosan elérhetőek lesznek
                     </p>
                   </div>
@@ -695,16 +711,16 @@ export default function Home() {
                   viewport={{ once: true }}
                   className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-6 lg:p-8"
                 >
-                  <div className="text-center mb-8">
-                    <h3 className={`${bebasNeue.className} text-[#ff5c1a] text-2xl md:text-3xl mb-2`}>
+                  <div className="text-center mb-6 md:mb-8">
+                    <h3 className={`${bebasNeue.className} text-[#ff5c1a] text-xl sm:text-2xl md:text-3xl mb-2`}>
                       ELITE 2
                     </h3>
-                    <p className="text-white/60 text-sm md:text-base">
+                    <p className="text-white/60 text-xs sm:text-sm md:text-base">
                     </p>
                   </div>
 
-                  <div className="text-center py-12">
-                    <div className="relative w-24 h-24 mx-auto mb-6 opacity-40">
+                  <div className="text-center py-8 md:py-12">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mx-auto mb-4 md:mb-6 opacity-40">
                       <Image 
                         src="/elitelogo.png" 
                         alt="ELITE Logo" 
@@ -712,10 +728,10 @@ export default function Home() {
                         className="object-contain"
                       />
                     </div>
-                    <h4 className={`${bebasNeue.className} text-[#ff5c1a] text-xl md:text-2xl mb-3`}>
+                    <h4 className={`${bebasNeue.className} text-[#ff5c1a] text-lg sm:text-xl md:text-2xl mb-2 md:mb-3`}>
                       HAMAROSAN...
                     </h4>
-                    <p className="text-white/70 text-sm md:text-base">
+                    <p className="text-white/70 text-xs sm:text-sm md:text-base">
                       A tabella adatok hamarosan elérhetőek lesznek
                     </p>
                   </div>
@@ -752,15 +768,15 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <h3 className={`${bebasNeue.className} text-[#FFFFFF] text-2xl md:text-3xl`}>
+                    <h3 className={`${bebasNeue.className} text-[#FFFFFF] text-xl sm:text-2xl md:text-3xl`}>
                       ELITE Beerpong
                     </h3>
-                    <p className="text-white/60 text-sm">
+                    <p className="text-white/60 text-xs sm:text-sm">
                       Európa és Magyarország legelső profi beerpong bajnoksága
                     </p>
                   </div>
                 </div>
-                <p className="text-white/70 text-sm md:text-base leading-relaxed max-w-md">
+                <p className="text-white/70 text-xs sm:text-sm md:text-base leading-relaxed max-w-md">
                   Tizenkét évvel ezelőtt néhány magyar egyetemista fejében fogant meg az ötlet, 
                   hogy a beerpongnak nemcsak a kollégiumi bulik asztalán van helye.
                 </p>
@@ -773,32 +789,32 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: 0.1 }}
                 viewport={{ once: true }}
               >
-                <h4 className={`${bebasNeue.className} text-[#FFDB11] text-lg md:text-xl mb-4`}>
+                <h4 className={`${bebasNeue.className} text-[#FFDB11] text-base sm:text-lg md:text-xl mb-3 md:mb-4`}>
                   Gyors linkek
                 </h4>
-                <ul className="space-y-3">
+                <ul className="space-y-2 md:space-y-3">
                   <li>
-                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-sm md:text-base">
+                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm md:text-base">
                       Szabályok
                     </a>
                   </li>
                   <li>
-                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-sm md:text-base">
+                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm md:text-base">
                       Lebonyolítás
                     </a>
                   </li>
                   <li>
-                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-sm md:text-base">
+                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm md:text-base">
                       Meccsek
                     </a>
                   </li>
                   <li>
-                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-sm md:text-base">
+                    <a href="#" className="text-white/70 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm md:text-base">
                       Bajnokságok
                     </a>
                   </li>
                   <li>
-                    <a href="/auth/login" className="text-white/70 hover:text-[#FFDB11] transition-colors text-sm md:text-base">
+                    <a href="/auth/login" className="text-white/70 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm md:text-base">
                       Bejelentkezés
                     </a>
                   </li>
@@ -812,31 +828,31 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: 0.2 }}
                 viewport={{ once: true }}
               >
-                <h4 className={`${bebasNeue.className} text-[#FFDB11] text-lg md:text-xl mb-4`}>
+                <h4 className={`${bebasNeue.className} text-[#FFDB11] text-base sm:text-lg md:text-xl mb-3 md:mb-4`}>
                   Kapcsolat
                 </h4>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-[#ff5c1a] rounded-full"></div>
-                    <span className="text-white/70 text-sm md:text-base">
+                <div className="space-y-2 md:space-y-3">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#ff5c1a] rounded-full flex-shrink-0"></div>
+                    <span className="text-white/70 text-xs sm:text-sm md:text-base">
                       sorpingpong@gmail.com
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-[#ff5c1a] rounded-full"></div>
-                    <span className="text-white/70 text-sm md:text-base">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#ff5c1a] rounded-full flex-shrink-0"></div>
+                    <span className="text-white/70 text-xs sm:text-sm md:text-base">
                       facebook.com/elitebeerpong
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-[#ff5c1a] rounded-full"></div>
-                    <span className="text-white/70 text-sm md:text-base">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#ff5c1a] rounded-full flex-shrink-0"></div>
+                    <span className="text-white/70 text-xs sm:text-sm md:text-base">
                       facebook.com/Sorpingpong
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-[#ff5c1a] rounded-full"></div>
-                    <span className="text-white/70 text-sm md:text-base">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-[#ff5c1a] rounded-full flex-shrink-0"></div>
+                    <span className="text-white/70 text-xs sm:text-sm md:text-base">
                     sorpingpong.hu
                     </span>
                   </div>
@@ -852,17 +868,17 @@ export default function Home() {
               viewport={{ once: true }}
               className="mt-12 pt-8 border-t border-white/10"
             >
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4">
                 <div className="text-center md:text-left">
-                  <p className="text-white/60 text-sm">
+                  <p className="text-white/60 text-xs sm:text-sm">
                     © 2025 ELITE Beerpong. Minden jog fenntartva.
                   </p>
                 </div>
-                <div className="flex items-center gap-6">
-                  <a href="#" className="text-white/60 hover:text-[#FFDB11] transition-colors text-sm">
+                <div className="flex items-center gap-4 md:gap-6">
+                  <a href="#" className="text-white/60 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm">
                     Adatvédelmi irányelvek
                   </a>
-                  <a href="#" className="text-white/60 hover:text-[#FFDB11] transition-colors text-sm">
+                  <a href="#" className="text-white/60 hover:text-[#FFDB11] transition-colors text-xs sm:text-sm">
                     Felhasználási feltételek
                   </a>
                 </div>
