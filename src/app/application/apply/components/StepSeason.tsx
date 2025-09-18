@@ -69,7 +69,7 @@ export default function StepSeason({ onBack, onNext, gameDayCount, hasPlayoff, e
             )
           )}
 
-          {!hasPlayoff && typeof elimination === 'number' && (
+          {(!hasPlayoff && typeof elimination === 'number') && (
             line(
               <>
                 <span className="text-white text-2xl md:text-4xl">TOVÁBBÁ AZ ALAPSZAKASZ VÉGÉN</span>
