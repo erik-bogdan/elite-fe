@@ -120,8 +120,8 @@ function Row({ idx, row, rank }: { idx: number; row: TopRow; rank: number }) {
     <div className="grid grid-cols-12 items-center py-2 px-2 md:px-3  hover:bg-[#FFDB11]/10 transition-colors min-w-0">
       <div className={`${bebasNeue.className} col-span-1 text-[#FFDB11] text-lg md:text-xl`}>{rank}.</div>
       <div className="col-span-6 flex items-center gap-2 min-w-0">
-        <div className="relative h-7 w-7 overflow-hidden flex-shrink-0">
-          <Image src={abs(teamLogoMap[row.team] || teamLogoMap[row.team.toUpperCase()] || `https://picsum.photos/seed/${seed}/64`)} alt={row.team} fill sizes="28px" className="object-cover" />
+        <div className="relative h-[30px] w-[30px] overflow-hidden flex-shrink-0">
+          <Image src={abs(teamLogoMap[row.team] || teamLogoMap[row.team.toUpperCase()] || `https://picsum.photos/seed/${seed}/64`)} alt={row.team} fill sizes="28px" className="object-contain" />
         </div>
         <div className={`${bebasNeue.className} text-white text-lg md:text-2xl truncate`}>{row.team}</div>
       </div>

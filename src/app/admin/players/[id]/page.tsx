@@ -2,7 +2,6 @@
 
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { toBackendUrl } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Bebas_Neue } from "next/font/google";
 import { FiArrowLeft, FiEdit2, FiAward } from "react-icons/fi";
@@ -76,7 +75,7 @@ export default function PlayerDetailsPage() {
           <div className="flex flex-col items-center">
             <div className="relative w-48 h-48 rounded-full border-4 border-[#ff5c1a] overflow-hidden">
               <Image
-                src={toBackendUrl(player.image) || `https://picsum.photos/seed/${player.id}/192`}
+                src={player.image || `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/uploads/player-images/default.png`}
                 alt={`${player.firstName ?? ''} ${player.lastName ?? ''}`.trim() || 'Player'}
                 width={192}
                 height={192}

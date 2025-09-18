@@ -33,7 +33,7 @@ function TeamCell({ team }: { team: TeamLogo }) {
   const src = team.logo && team.logo.trim().length > 0 ? team.logo : `https://picsum.photos/seed/${seed}/64`;
   return (
     <div className={`${bebasNeue.className} flex items-center gap-2`}>
-      <div className="relative h-7 w-7 overflow-hidden border-white/20 flex-shrink-0">
+      <div className="relative h-[30px] w-[30px] overflow-hidden border-white/20 flex-shrink-0">
         <Image src={src} alt={team.name}  sizes="" width={28} height={28} className="object-contain" />
       </div>
       <span className="text-white text-lg md:text-2xl leading-tight">{team.name}</span>
@@ -48,10 +48,10 @@ function ThirdCell({ a, b }: { a: TeamLogo; b: TeamLogo }) {
   const srcB = b.logo && b.logo.trim().length > 0 ? b.logo : `https://picsum.photos/seed/${seedB}/64`;
   return (
     <div className={`${bebasNeue.className} flex items-center gap-2`}>
-      <div className="relative h-7 w-7 overflow-hidden border-white/20 flex-shrink-0">
+      <div className="relative h-[40px] w-[30px] overflow-hidden border-white/20 flex-shrink-0">
         <Image src={srcA} alt={a.name}  sizes="" width={28} height={28} className="w-7 h-auto object-contain" />
       </div>
-      <div className="relative h-7 w-7 overflow-hidden border-white/20 flex-shrink-0">
+      <div className="relative h-[40px] w-[30px] overflow-hidden border-white/20 flex-shrink-0">
         <Image src={srcB} alt={b.name}  sizes="" width={28} height={28} className="w-7 h-auto object-contain" />
       </div>
       <span className="text-white text-lg md:text-2xl leading-tight">{a.name} / {b.name}</span>

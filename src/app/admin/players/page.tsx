@@ -169,7 +169,7 @@ export default function PlayersPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full overflow-hidden">
                         <Image
-                          src={(player as any).image || `https://picsum.photos/seed/${player.id}/80`}
+                          src={(player as any).image || `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/uploads/player-images/default.png`}
                           alt={`${(player as any).firstName ?? ''} ${(player as any).lastName ?? ''}`.trim() || 'Player'}
                           width={40}
                           height={40}
