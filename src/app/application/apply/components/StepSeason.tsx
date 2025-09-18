@@ -69,6 +69,15 @@ export default function StepSeason({ onBack, onNext, gameDayCount, hasPlayoff, e
             )
           )}
 
+          {!hasPlayoff && typeof elimination === 'number' && (
+            line(
+              <>
+                <span className="text-white text-2xl md:text-4xl">TOVÁBBÁ AZ ALAPSZAKASZ VÉGÉN</span>
+                <span className="block text-[#FFDB11] text-2xl md:text-4xl mt-2">AZ UTOLSÓ {elimination} CSAPAT BÚCSÚZIK A</span>
+                <span className="block text-[#FFDB11] text-2xl md:text-4xl">VERSENYSOROZATTÓL.</span>
+              </>
+            )
+          )}
         </div>
       </motion.div>
 
