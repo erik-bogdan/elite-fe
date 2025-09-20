@@ -10,7 +10,11 @@ function ClientShellContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const lt = sp.get('lt');
     const fromInvite = sp.get('invite');
-    if (lt || fromInvite) {
+    
+    // Don't redirect if we're on the accept-invite page (it handles its own invite logic)
+    const isAcceptInvitePage = typeof window !== 'undefined' && window.location.pathname === '/auth/accept-invite';
+    
+    if ((lt || fromInvite) && !isAcceptInvitePage) {
       const target = lt ? `/application/apply/${encodeURIComponent(lt)}` : '/auth/set-password?invite=1';
       router.replace(target);
     }

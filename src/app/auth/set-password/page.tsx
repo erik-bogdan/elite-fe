@@ -9,6 +9,7 @@ export default function SetPasswordPage() {
   const router = useRouter();
   const fromInvite = sp.get('invite') || sp.get('result') === 'success';
   const leagueTeamId = sp.get('lt') || '';
+  const inviteToken = sp.get('token') || '';
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,21 +28,43 @@ export default function SetPasswordPage() {
     try {
       setSubmitting(true);
       const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}`;
+      
+      // Set password
       const res = await fetch(`${backend}/api/auth/set-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ newPassword: password })
       });
-      if (res.ok) {
+      
+      if (!res.ok) {
+        toast.error('Nem sikerült a jelszó beállítása');
+        return;
+      }
+      
+      // If we have an invite token, accept the player invite
+      if (inviteToken) {
+        const inviteRes = await fetch(`${backend}/api/players/link-invite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ token: inviteToken })
+        });
+        
+        if (!inviteRes.ok) {
+          toast.error('Nem sikerült a meghívó elfogadása');
+          return;
+        }
+        
+        toast.success('Jelszó beállítva és meghívó elfogadva!');
+        router.replace('/auth/login');
+      } else {
         toast.success('Jelszó beállítva');
         if (leagueTeamId) {
           router.replace(`/application/apply/${encodeURIComponent(leagueTeamId)}`);
         } else {
           router.replace('/application');
         }
-      } else {
-        toast.error('Nem sikerült a jelszó beállítása');
       }
     } finally {
       setSubmitting(false);

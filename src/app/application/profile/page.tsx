@@ -31,7 +31,7 @@ export default function ProfilePage() {
       
       // Load stats and player image
       try {
-        const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/user/profile/stats`, { credentials: 'include' });
+        const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST || 'http://localhost:3555'}/api/user/profile/stats`, { credentials: 'include' });
         if (resp.ok && mounted) {
           const playerData = await resp.json();
           setStats(playerData);
@@ -44,7 +44,7 @@ export default function ProfilePage() {
       
       // Load seasons
       try {
-        const resp2 = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/user/profile/seasons`, { credentials: 'include' });
+        const resp2 = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST || 'http://localhost:3555'}/api/user/profile/seasons`, { credentials: 'include' });
         if (resp2.ok && mounted) {
           const d = await resp2.json();
           setSeasons(d?.seasons || []);
@@ -210,7 +210,7 @@ export default function ProfilePage() {
                         const reader = new FileReader();
                         reader.onload = async () => {
                           const dataUrl = reader.result as string;
-                          const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/user/profile/avatar`, {
+                          const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST || 'http://localhost:3555'}/api/user/profile/avatar`, {
                             method: 'PUT', 
                             headers: { 'Content-Type': 'application/json' }, 
                             credentials: 'include', 
@@ -272,7 +272,7 @@ export default function ProfilePage() {
                 </button>
                 <button 
                   onClick={async () => {
-                    const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/user/profile/password`, {
+                    const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST || 'http://localhost:3555'}/api/user/profile/password`, {
                       method: 'PUT', 
                       headers: { 'Content-Type': 'application/json' }, 
                       credentials: 'include', 
