@@ -326,6 +326,8 @@ export default function StepEnrollment({ onBack, defaultTeamName, teamId, season
                                             <option value="L" className="text-black">L</option>
                                             <option value="XL" className="text-black">XL</option>
                                             <option value="XXL" className="text-black">XXL</option>
+                                            <option value="XXXL" className="text-black">XXXL</option>
+                                            <option value="XXXXL" className="text-black">XXXXL</option>
                                         </select>
                                     </div>
                                     <div className="flex items-center gap-2 flex justify-center">
@@ -392,6 +394,8 @@ export default function StepEnrollment({ onBack, defaultTeamName, teamId, season
                                         <option value="L" className="text-black">L</option>
                                         <option value="XL" className="text-black">XL</option>
                                         <option value="XXL" className="text-black">XXL</option>
+                                        <option value="XXXL" className="text-black">XXXL</option>
+                                        <option value="XXXXL" className="text-black">XXXXL</option>
                                     </select>
                                     <div className="flex items-center gap-2">
                                         <span className="text-white/80 text-sm">Kapitány</span>
