@@ -14,6 +14,9 @@ export type TeamStats = {
   homeTotal: { hits: number; total: number; percentage: number };
   awayTotal: { hits: number; total: number; percentage: number };
   winner: 'home' | 'away' | null;
+  // New: explicit star flags so both teams can show a star simultaneously
+  starHome?: boolean;
+  starAway?: boolean;
 };
 
 export type ThrowAction = {
@@ -59,10 +62,10 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
   }, [maxRounds]);
 
   return (
-    <div className={`bg-black/30 rounded-2xl p-6 border-2 border-[#ff5c1a] ${className}`}>
+    <div className={`bg-black/30 rounded-2xl p-6 border-2 border-[#ff5c1a] flex flex-col gap-4 ${className}`}>
       
-      {/* Summary Table */}
-      <div className="mb-6 overflow-x-auto">
+      {/* Summary Table (mobile: below, desktop: above) */}
+      <div className="mb-2 md:mb-6 overflow-x-auto order-2 md:order-1">
         <table className="w-full border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
           <tbody>
             <tr>
@@ -86,7 +89,7 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
                 {teamStats.homeTotal.percentage}%
               </td>
               <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2" style={{ width: '12%' }}>
-                {teamStats.winner === 'home' ? '★' : ''}{teamStats.homeTotal.hits}/{teamStats.homeTotal.total} ({teamStats.homeTotal.total - teamStats.homeTotal.hits})
+                {teamStats.starHome ? '★' : ''}{teamStats.homeTotal.hits}/{teamStats.homeTotal.total} ({teamStats.homeTotal.total - teamStats.homeTotal.hits})
               </td>
             </tr>
             <tr>
@@ -109,15 +112,15 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
                 {teamStats.awayTotal.percentage}%
               </td>
               <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2">
-                {teamStats.winner === 'away' ? '★' : ''}{teamStats.awayTotal.hits}/{teamStats.awayTotal.total} ({teamStats.awayTotal.total - teamStats.awayTotal.hits})
+                {teamStats.starAway ? '★' : ''}{teamStats.awayTotal.hits}/{teamStats.awayTotal.total} ({teamStats.awayTotal.total - teamStats.awayTotal.hits})
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      {/* Throw History */}
-      <div className="overflow-x-auto" ref={scrollContainerRef}>
+      {/* Throw History (mobile first) */}
+      <div className="overflow-x-auto order-1 md:order-2" ref={scrollContainerRef}>
         <table className="border-collapse" style={{ tableLayout: 'fixed', width: 'auto' }}>
           <tbody>
             {/* Home Team Row */}

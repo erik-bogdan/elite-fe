@@ -56,10 +56,11 @@ export default function MyMatchesPage() {
       const awayFirstPlayer = getPlayerName(match.awayFirstPlayerId, 'away');
       const awaySecondPlayer = getPlayerName(match.awaySecondPlayerId, 'away');
 
+      console.log(match.matchTime);
       return {
         id: match.id,
-        date: new Date(match.matchAt || match.matchDate).toLocaleDateString('hu-HU'),
-        time: new Date(match.matchAt || match.matchTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date(match.matchTime).toLocaleDateString('hu-HU', { timeZone: 'UTC' }),
+        time: new Date(match.matchAt || match.matchTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
         table: match.matchTable,
         round: match.matchRound,
         gameDay: match.gameDay || 1,

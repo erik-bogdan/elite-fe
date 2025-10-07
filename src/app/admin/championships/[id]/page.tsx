@@ -14,6 +14,7 @@ import RankModal from "./RankModal";
 import * as Tooltip from '@radix-ui/react-tooltip';
 import TeamAssignModal from "./TeamAssignModal";
 import StartModal from "./StartModal";
+import ScriptModal from "./ScriptModal";
 import ActionMenu from "../../teams/ActionMenu";
 
 const bebasNeue = Bebas_Neue({
@@ -127,6 +128,7 @@ export default function ChampionshipView() {
   const [expandedRounds, setExpandedRounds] = useState<string[]>([]);
   const [isTeamModalOpen, setTeamModalOpen] = useState(false);
   const [isStartModalOpen, setStartModalOpen] = useState(false);
+  const [isScriptModalOpen, setScriptModalOpen] = useState(false);
   const [activeRow, setActiveRow] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
   const [resultModal, setResultModal] = useState<{ open: boolean; match?: any }>(() => ({ open: false }));
@@ -187,8 +189,8 @@ export default function ChampionshipView() {
   // Fetch real matches and group by match day (date)
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
-      const dateAt = row?.match?.matchAt || row?.match?.matchDate || null;
-      const timeAt = row?.match?.matchAt || row?.match?.matchTime || null;
+      const dateAt = row?.match?.matchDate || row?.match?.matchAt || null;
+      const timeAt = row?.match?.matchTime || row?.match?.matchAt || null;
       if (!dateAt) return null;
       return {
         id: row.match.id,
@@ -220,7 +222,7 @@ export default function ChampionshipView() {
         .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
           tableNumber: m.table,
           round: m.round,
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -236,9 +238,9 @@ export default function ChampionshipView() {
     .map((row: any) => ({
       id: row.match.id,
       round: Number(row.match.matchRound || 0) || 0,
-      time: row.match.matchAt || row.match.matchTime,
+      time: row.match.matchTime || row.match.matchAt,
       table: row.match.matchTable,
-      date: row.match.matchAt || row.match.matchDate,
+      date: row.match.matchDate || row.match.matchAt,
       home: row.homeTeam?.name || row.match.homeTeamId,
       homeLogo: abs(row.homeTeam?.logo) || '/elitelogo.png',
       away: row.awayTeam?.name || row.match.awayTeamId,
@@ -259,7 +261,7 @@ export default function ChampionshipView() {
         .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
           tableNumber: m.table,
           date: new Date(m.date).toLocaleDateString(),
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -313,6 +315,12 @@ export default function ChampionshipView() {
         <button className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors">
           <FiDownload className="w-5 h-5" /> Export Championship
         </button>
+        <button 
+          onClick={() => setScriptModalOpen(true)} 
+          className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors"
+        >
+          <FiTable className="w-5 h-5" /> Script Generálás
+        </button>
       </div>
 
       {/* Game Day MVP boxes under header buttons */}
@@ -355,7 +363,7 @@ export default function ChampionshipView() {
             <label className="text-white/70">Játéknap:</label>
             <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value); setUptoGameDay('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
               <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => (rm.match.matchAt || rm.match.matchDate) && new Date(rm.match.matchAt || rm.match.matchDate).toISOString().slice(0,10)))).filter(Boolean).sort().map((d: string, idx: number) => (
+              {Array.from(new Set((leagueMatches || []).map((rm: any) => (rm.match.matchDate || rm.match.matchAt) && new Date(rm.match.matchDate || rm.match.matchAt).toISOString().slice(0,10)))).filter(Boolean).sort().map((d: string, idx: number) => (
                 <option key={`day-${d}`} value={d}>Gameday {idx + 1}</option>
               ))}
             </select>
@@ -537,9 +545,9 @@ export default function ChampionshipView() {
                     } else if (uptoGameDay !== 'all') {
                       teamMatches = teamMatches.filter((row: any) => Number(row.match.gameDay || 0) <= Number(uptoGameDay));
                     } else if (selectedDay !== 'all') {
-                      teamMatches = teamMatches.filter((row: any) => formatKey(row.match.matchAt || row.match.matchDate) === selectedDay);
+                      teamMatches = teamMatches.filter((row: any) => formatKey(row.match.matchDate || row.match.matchAt) === selectedDay);
                     }
-                    teamMatches = teamMatches.sort((a: any, b: any) => new Date(a.match.matchAt || a.match.matchDate || a.match.createdAt).getTime() - new Date(b.match.matchAt || b.match.matchDate || b.match.createdAt).getTime());
+                    teamMatches = teamMatches.sort((a: any, b: any) => new Date(a.match.matchDate || a.match.matchAt || a.match.createdAt).getTime() - new Date(b.match.matchDate || b.match.matchAt || b.match.createdAt).getTime());
                     const last5 = teamMatches.slice(-5).map((m: any) => {
                       const isHome = m.match.homeTeamId === s.teamId;
                       const oppName = isHome ? (m.awayTeam?.name || m.match.awayTeamId) : (m.homeTeam?.name || m.match.homeTeamId);
@@ -552,7 +560,7 @@ export default function ChampionshipView() {
                       const code = win ? (ot ? 'GYH' : 'GY') : (ot ? 'VH' : 'V');
                       const color = win ? (ot ? 'bg-green-600/60' : 'bg-green-600') : (ot ? 'bg-red-600/60' : 'bg-red-600');
                       const border = '';
-                      const dateStr = (m.match.matchAt || m.match.matchDate) ? new Date(m.match.matchAt || m.match.matchDate).toLocaleDateString() : '';
+                      const dateStr = (m.match.matchDate || m.match.matchAt) ? new Date(m.match.matchDate || m.match.matchAt).toLocaleDateString() : '';
                       const score = `${hs} : ${as}`;
                       const title = `${score} (${isHome ? s.name : oppName} - ${isHome ? oppName : s.name})\n${dateStr}`;
                       return { code, color, border, title };
@@ -623,6 +631,13 @@ export default function ChampionshipView() {
       </div>
 
       <StartModal id={championshipId!} isOpen={isStartModalOpen} onClose={() => setStartModalOpen(false)} teamNames={(attachedTeams || []).map((t: any) => t.name)} />
+      
+      <ScriptModal 
+        isOpen={isScriptModalOpen} 
+        onClose={() => setScriptModalOpen(false)} 
+        leagueMatches={leagueMatches || []}
+        championship={championship}
+      />
 
 
       {resultModal.open && championship && matchMeta && (
@@ -639,10 +654,9 @@ export default function ChampionshipView() {
           initialMvpB={matchMeta.mvp?.away}
           onSubmit={async (payload) => {
             try {
-              const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/matches/${matchMeta.matchId}/result`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+              await updateMatchResult({
+                id: modalMatchId,
+                body: {
                   homeTeamScore: payload.cupsA,
                   awayTeamScore: payload.cupsB,
                   homeTeamBestPlayerId: payload.mvpAId || undefined,
@@ -651,9 +665,8 @@ export default function ChampionshipView() {
                   homeSecondPlayerId: payload.selectedAIds?.[1],
                   awayFirstPlayerId: payload.selectedBIds?.[0],
                   awaySecondPlayerId: payload.selectedBIds?.[1],
-                })
-              });
-              if (!res.ok) throw new Error('Save failed');
+                }
+              }).unwrap();
               // frissítsük a listát, meta-t és a tabellát
               await Promise.all([refetchMatches(), refetchMeta(), refetchStandings()]);
               setResultModal({ open: false });

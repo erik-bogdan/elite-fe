@@ -74,7 +74,7 @@ export default function AcceptInvitePage() {
     };
 
     validateToken();
-  }, [token, ba, router]);
+  }, [token, ba, router, sp]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

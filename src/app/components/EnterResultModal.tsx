@@ -147,9 +147,9 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                 );
               })}
             </div>
-            <div className="mt-2 md:mt-4 flex flex-col items-center gap-2 md:gap-4">
+            <div className="mt-2 md:mt-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
               <div>
-                <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">CUPS</label>
+                <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">Pohár</label>
                 <input
                   type="number"
                   min={0}
@@ -157,7 +157,7 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                   value={cupsA}
                   onChange={e => setCupsA(Number(e.target.value))}
                   className={`w-16 md:w-24 text-center bg-black/60 border-2 ${cupsA === 10 || cupsA > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
-                  placeholder="Cups"
+                  placeholder="Pohár"
                 />
               </div>
               <div>
@@ -226,9 +226,9 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                 );
               })}
             </div>
-            <div className="mt-2 md:mt-4 flex flex-col items-center gap-2 md:gap-4">
+            <div className="mt-2 md:mt-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
               <div>
-                <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">CUPS</label>
+                <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">Pohár</label>
                 <input
                   type="number"
                   min={0}
@@ -236,7 +236,7 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                   value={cupsB}
                   onChange={e => setCupsB(Number(e.target.value))}
                   className={`w-16 md:w-24 text-center bg-black/60 border-2 ${cupsB === 10 || cupsB > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
-                  placeholder="Cups"
+                  placeholder="Pohár"
                 />
               </div>
               <div>

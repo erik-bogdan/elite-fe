@@ -192,7 +192,7 @@ export default function MatchTrackingPage() {
         // Fallback: load last tracking snapshot from backend
         (async () => {
           try {
-            const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/matches/${matchId}`);
+            const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches/${matchId}`, { credentials: 'include' });
             if (!resp.ok) return;
             const data = await resp.json();
             const trackingData = data?.match?.trackingData || data?.trackingData;
@@ -223,10 +223,10 @@ export default function MatchTrackingPage() {
     }
   }, [gameState, selectedPlayers, setupComplete, mvpSelections, saveToLocalStorage]);
 
-  const getPlayerName = (playerId: string, team: 'home' | 'away') => {
+  const getPlayerName = useCallback((playerId: string, team: 'home' | 'away') => {
     const players: Player[] | undefined = team === 'home' ? matchMeta?.homeTeam.players : matchMeta?.awayTeam.players;
     return players?.find((p: Player) => p.id === playerId)?.label || playerId;
-  };
+  }, [matchMeta]);
 
   const handleThrow = (type: 'hit' | 'miss', playerId: string) => {
     const team = gameState.currentTurn;
@@ -936,6 +936,15 @@ export default function MatchTrackingPage() {
     return round.throws.filter(action => action.playerId === playerId);
   };
 
+  // Check if first 10 throws were perfect for a player
+  const isFirst10ThrowsPerfect = (playerId: string): boolean => {
+    const playerThrows = gameState.gameHistory.filter(action => action.playerId === playerId);
+    const first10Throws = playerThrows.slice(0, 10);
+    
+    // Must have exactly 10 throws and all must be hits
+    return first10Throws.length === 10 && first10Throws.every(throw_ => throw_.type === 'hit');
+  };
+
   // Calculate player statistics
   const calculatePlayerStats = (playerId: string) => {
     const playerThrows = gameState.gameHistory.filter(action => action.playerId === playerId);
@@ -948,7 +957,8 @@ export default function MatchTrackingPage() {
       name: getPlayerName(playerId, playerId === selectedPlayers.homeFirst || playerId === selectedPlayers.homeSecond ? 'home' : 'away'),
       hits,
       total,
-      percentage
+      percentage,
+      isFirst10Perfect: isFirst10ThrowsPerfect(playerId)
     };
   };
 
@@ -1170,8 +1180,9 @@ export default function MatchTrackingPage() {
       await finishTracking({ id: matchId, trackingData: matchData }).catch(e => console.error('Failed to finish tracking flag:', e));
 
       // Send final result to backend API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api/matches/${matchId}/result`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches/${matchId}/result`, {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           homeTeamScore: matchData.homeTeam.score,
@@ -1414,7 +1425,7 @@ export default function MatchTrackingPage() {
         {!setupComplete && (
           <div className="bg-black/30 rounded-2xl p-6 mb-6 border-2 border-[#ff5c1a]">
             <h2 className={`${bebasNeue.className} text-xl text-white mb-4 text-center`}>Játékosok kiválasztása</h2>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Home Team */}
               <div>
                 <h3 className="text-[#ff5c1a] font-bold mb-3">{matchMeta.homeTeam.name}</h3>
@@ -1517,26 +1528,54 @@ export default function MatchTrackingPage() {
         {setupComplete && (
           <div className="bg-black/30 rounded-2xl p-6 border-2 border-[#ff5c1a]">
             <h2 className={`${bebasNeue.className} text-xl text-white mb-6 text-center`}>Dobás követése</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {getCurrentPlayerOptions().map((player, index) => (
-                <button
-                  key={index}
-                  onClick={() => !player.disabled && handleThrow(player.type, player.id)}
-                  disabled={player.disabled}
-                  className={`w-full py-6 rounded-xl font-bold text-white transition-all ${
-                    player.disabled 
-                      ? 'bg-gray-500 cursor-not-allowed opacity-50' 
-                      : player.type === 'hit' 
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    {player.type === 'hit' ? <FiTarget /> : <FiX />}
-                    <span>{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
-                  </div>
-                </button>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+              {(() => {
+                const opts = getCurrentPlayerOptions();
+                return (
+                  <>
+                    {opts.slice(0,2).map((player, index) => (
+                      <button
+                        key={`opt-a-${index}`}
+                        onClick={() => !player.disabled && handleThrow(player.type, player.id)}
+                        disabled={player.disabled}
+                        className={`w-full py-6 rounded-xl font-bold text-white transition-all ${
+                          player.disabled 
+                            ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+                            : player.type === 'hit' 
+                              ? 'bg-green-600 hover:bg-green-700' 
+                              : 'bg-red-600 hover:bg-red-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          {player.type === 'hit' ? <FiTarget /> : <FiX />}
+                          <span>{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {/* separator only on mobile */}
+                    <div className="block sm:hidden h-px my-2 bg-white/20 w-full col-span-full" />
+                    {opts.slice(2).map((player, index) => (
+                      <button
+                        key={`opt-b-${index}`}
+                        onClick={() => !player.disabled && handleThrow(player.type, player.id)}
+                        disabled={player.disabled}
+                        className={`w-full py-6 rounded-xl font-bold text-white transition-all ${
+                          player.disabled 
+                            ? 'bg-gray-500 cursor-not-allowed opacity-50' 
+                            : player.type === 'hit' 
+                              ? 'bg-green-600 hover:bg-green-700' 
+                              : 'bg-red-600 hover:bg-red-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          {player.type === 'hit' ? <FiTarget /> : <FiX />}
+                          <span>{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1573,7 +1612,9 @@ export default function MatchTrackingPage() {
                   away: [awayFirstStats, awaySecondStats],
                   homeTotal,
                   awayTotal,
-                  winner: homeTotal.hits > awayTotal.hits ? 'home' : awayTotal.hits > homeTotal.hits ? 'away' : null
+                    winner: homeTotal.hits > awayTotal.hits ? 'home' : awayTotal.hits > homeTotal.hits ? 'away' : null,
+                    starHome: Boolean(homeFirstStats.isFirst10Perfect && homeSecondStats.isFirst10Perfect),
+                    starAway: Boolean(awayFirstStats.isFirst10Perfect && awaySecondStats.isFirst10Perfect)
                 };
               })()}
               throws={gameState.gameHistory.map((action, index) => {
@@ -1632,7 +1673,7 @@ export default function MatchTrackingPage() {
         {/* End Match Modal */}
         {showEndMatchModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-black/90 rounded-2xl p-8 max-w-2xl w-full mx-4 border-2 border-[#ff5c1a]">
+            <div className="bg-black/90 rounded-2xl p-8 max-w-2xl w-full mx-4 border-2 border-[#ff5c1a] max-h-[80vh] overflow-auto">
               <h2 className={`${bebasNeue.className} text-2xl text-white mb-6 text-center`}>Meccs eredmény leadása</h2>
               
               {/* Match Summary */}
@@ -1715,9 +1756,17 @@ export default function MatchTrackingPage() {
                               total: homeFirstStats.total + homeSecondStats.total,
                               percentage: Math.round(((homeFirstStats.hits + homeSecondStats.hits) / (homeFirstStats.total + homeSecondStats.total)) * 100) || 0
                             };
+                            // Debug log
+                            console.log('Home stats:', {
+                              first: homeFirstStats.isFirst10Perfect,
+                              second: homeSecondStats.isFirst10Perfect,
+                              firstThrows: gameState.gameHistory.filter(a => a.playerId === selectedPlayers.homeFirst).length,
+                              secondThrows: gameState.gameHistory.filter(a => a.playerId === selectedPlayers.homeSecond).length
+                            });
+                            
                             return (
                               <>
-                                {homeTotal.percentage === 100 ? '★' : ''} {homeTotal.hits}/{homeTotal.total} ({homeTotal.percentage}%)
+                                {(homeFirstStats.isFirst10Perfect && homeSecondStats.isFirst10Perfect) ? '★' : ''} {homeTotal.hits}/{homeTotal.total} ({homeTotal.percentage}%)
                               </>
                             );
                           })()}
@@ -1782,9 +1831,17 @@ export default function MatchTrackingPage() {
                               total: awayFirstStats.total + awaySecondStats.total,
                               percentage: Math.round(((awayFirstStats.hits + awaySecondStats.hits) / (awayFirstStats.total + awaySecondStats.total)) * 100) || 0
                             };
+                            // Debug log
+                            console.log('Away stats:', {
+                              first: awayFirstStats.isFirst10Perfect,
+                              second: awaySecondStats.isFirst10Perfect,
+                              firstThrows: gameState.gameHistory.filter(a => a.playerId === selectedPlayers.awayFirst).length,
+                              secondThrows: gameState.gameHistory.filter(a => a.playerId === selectedPlayers.awaySecond).length
+                            });
+                            
                             return (
                               <>
-                                {awayTotal.percentage === 100 ? '★' : ''} {awayTotal.hits}/{awayTotal.total} ({awayTotal.percentage}%)
+                                {(awayFirstStats.isFirst10Perfect && awaySecondStats.isFirst10Perfect) ? '★' : ''} {awayTotal.hits}/{awayTotal.total} ({awayTotal.percentage}%)
                               </>
                             );
                           })()}

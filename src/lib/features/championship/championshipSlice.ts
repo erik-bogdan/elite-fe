@@ -130,8 +130,9 @@ export const {
 export const championshipApi = createApi({
   reducerPath: 'championshipApi',
   baseQuery: fetchBaseQuery({
-    // A championship endpoint is a monolit API /api alatt fut a 3000-en
-    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}/api`,
+    // Backend base URL
+    baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api`,
+    credentials: 'include',
   }),
   tagTypes: ['Championship'],
   endpoints: (builder) => ({

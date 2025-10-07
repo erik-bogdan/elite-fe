@@ -5,6 +5,7 @@ import { Bebas_Neue } from "next/font/google";
 import { FiChevronDown, FiChevronUp, FiShare2, FiClock, FiMapPin, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 import { Circle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -16,6 +17,8 @@ interface UpcomingMatchCardProps {
   date: string;
   table: string;
   matchId?: string;
+  teamA?: { name: string; logo?: string };
+  teamB?: { name: string; logo?: string };
   onEnterResult?: () => void;
   onShare?: () => void;
   onDelayRequest?: () => void;
@@ -26,6 +29,8 @@ export default function UpcomingMatchCard({
   date,
   table,
   matchId,
+  teamA,
+  teamB,
   onEnterResult,
   onShare,
   onDelayRequest,
@@ -39,7 +44,7 @@ export default function UpcomingMatchCard({
     >
       {/* Collapsed row */}
       <button
-        className="w-full flex items-center justify-between px-6 py-4 focus:outline-none text-left"
+        className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-3 sm:py-4 gap-2 focus:outline-none text-left"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -47,16 +52,36 @@ export default function UpcomingMatchCard({
         }}
         aria-expanded={open}
       >
-        <div>
-          <div className={`${bebasNeue.className} text-lg text-white font-bold`}>{matchTitle}</div>
-          <div className="text-[#ff5c1a] text-xs mt-1 flex items-center gap-2">
-            <FiClock className="inline-block" />
-            {date}
+        <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+          {teamA?.logo && (
+            <Image
+              src={teamA.logo}
+              alt={teamA.name}
+              width={32}
+              height={32}
+              className="rounded-full border border-white/10"
+            />
+          )}
+          <div className="min-w-0">
+            <div className={`${bebasNeue.className} text-base sm:text-lg text-white font-bold truncate`}>{matchTitle}</div>
+            <div className="text-[#ff5c1a] text-[11px] sm:text-xs mt-1 flex items-center gap-2">
+              <FiClock className="inline-block" />
+              {date}
+            </div>
           </div>
+          {teamB?.logo && (
+            <Image
+              src={teamB.logo}
+              alt={teamB.name}
+              width={32}
+              height={32}
+              className="rounded-full border border-white/10"
+            />
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-white bg-[#ff5c1a]/80 px-3 py-1 rounded-lg font-bold">Table {table}</span>
-          <span className="ml-2 text-[#ff5c1a] text-2xl">
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          <span className="text-[11px] sm:text-xs text-white bg-[#ff5c1a]/80 px-2 sm:px-3 py-1 rounded-lg font-bold">Asztal: {table}</span>
+          <span className="text-[#ff5c1a] text-xl sm:text-2xl">
             {open ? <FiChevronUp /> : <FiChevronDown />}
           </span>
         </div>
@@ -71,7 +96,7 @@ export default function UpcomingMatchCard({
               <FiClock className="inline-block text-[#ff5c1a]" /> {date}
             </div>
             <div className="flex items-center gap-1">
-              <FiMapPin className="inline-block text-[#ff5c1a]" /> Table {table}
+              <FiMapPin className="inline-block text-[#ff5c1a]" /> Asztal: {table}
             </div>
           </div>
         </div>
@@ -84,9 +109,9 @@ export default function UpcomingMatchCard({
               onEnterResult?.();
             }}
           >
-            <FiCheckCircle /> Enter Result
+            <FiCheckCircle /> Eredmény beírása
           </button>
-          <button
+         {/* <button
             className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 rounded-xl shadow-md transition"
             onClick={(e) => {
               e.preventDefault();
@@ -94,8 +119,8 @@ export default function UpcomingMatchCard({
               onShare?.();
             }}
           >
-            <FiShare2 /> Share
-          </button>
+            <FiShare2 /> Megosztás
+          </button>*/}
           <button
             className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 rounded-xl shadow-md transition"
             onClick={(e) => {

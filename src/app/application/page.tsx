@@ -73,16 +73,22 @@ export default function DashboardPage() {
   const upcoming = mySortedMatches.filter(m => (m.when?.getTime?.() || 0) >= now);
   const nextMatch = upcoming[0] || null;
   const nextMatchTitle = nextMatch?.title || 'Nincs következő mérkőzés';
-  const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString() : '';
+  const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '';
   const nextMatchTable = nextMatch?.row?.match?.matchTable ? String(nextMatch.row.match.matchTable) : '';
 
   const upcomingFive = upcoming.slice(0, 5).map((m) => ({
     matchTitle: m.title,
-    date: m.when ? m.when.toLocaleString() : '',
+    date: m.when ? m.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '',
     table: String(m.table || ''),
     matchId: m.row.match?.id || m.row.id,
-    teamA: { name: m.row.homeTeam?.name || '' },
-    teamB: { name: m.row.awayTeam?.name || '' },
+    teamA: { 
+      name: m.row.homeTeam?.name || '', 
+      logo: m.row.homeTeam?.logo ? (m.row.homeTeam.logo.startsWith('http') ? m.row.homeTeam.logo : `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}${m.row.homeTeam.logo}`) : '/elitelogo.png'
+    },
+    teamB: { 
+      name: m.row.awayTeam?.name || '', 
+      logo: m.row.awayTeam?.logo ? (m.row.awayTeam.logo.startsWith('http') ? m.row.awayTeam.logo : `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}${m.row.awayTeam.logo}`) : '/elitelogo.png'
+    },
   }));
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTeams, setModalTeams] = useState<{ teamA: any; teamB: any } | null>(null);
@@ -246,9 +252,11 @@ export default function DashboardPage() {
                 <UpcomingMatchCard
                   key={idx}
                   matchTitle={match.matchTitle}
-                  date={match.date}
+                  date={new Date(match.date).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) + ' ' + new Date(match.date).toLocaleTimeString('hu-HU', { timeZone: 'UTC' })}
                   table={match.table}
                   matchId={match.matchId}
+                  teamA={match.teamA}
+                  teamB={match.teamB}
                   onEnterResult={() => handleEnterResult(upcoming[idx].row)}
                   onShare={() => {}}
                   onDelayRequest={() => {}}

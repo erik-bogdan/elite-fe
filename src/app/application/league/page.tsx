@@ -58,11 +58,15 @@ export default function LeaguePage() {
   );
   if (isLoading || !championship) return <div className="p-6 text-white">Betöltés...</div>;
 
+  // absolute URL helper for logos coming from backend
+  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
+  const abs = (p?: string | null) => (p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '');
+
   // Build match days list grouped by date and then rounds (read-only)
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
-      const dateAt = row?.match?.matchAt || row?.match?.matchDate || null;
-      const timeAt = row?.match?.matchAt || row?.match?.matchTime || null;
+      const dateAt = row?.match?.matchDate || row?.match?.matchAt || null;
+      const timeAt = row?.match?.matchTime || row?.match?.matchAt || null;
       if (!dateAt) return null;
       return {
         id: row.match.id,
@@ -71,9 +75,9 @@ export default function LeaguePage() {
         table: row.match.matchTable,
         round: row.match.matchRound,
         home: row.homeTeam?.name || row.match.homeTeamId,
-        homeLogo: row.homeTeam?.logo || '/elitelogo.png',
+        homeLogo: abs(row.homeTeam?.logo) || '/elitelogo.png',
         away: row.awayTeam?.name || row.match.awayTeamId,
-        awayLogo: row.awayTeam?.logo || '/elitelogo.png',
+        awayLogo: abs(row.awayTeam?.logo) || '/elitelogo.png',
         homeScore: row.match.homeTeamScore,
         awayScore: row.match.awayTeamScore,
       };
@@ -94,7 +98,7 @@ export default function LeaguePage() {
         .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
           tableNumber: m.table,
           round: m.round,
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -117,7 +121,7 @@ export default function LeaguePage() {
       {/* Header */}
       <div className="flex items-center gap-6 mb-8">
         <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#ff5c1a]">
-          <Image src={championship.logo || '/elitelogo.png'} alt={championship.name} width={96} height={96} className="object-cover w-full h-full" />
+          <Image src={abs(championship.logo) || '/elitelogo.png'} alt={championship.name} width={96} height={96} className="object-cover w-full h-full" />
         </div>
         <div>
           <h1 className={`${bebasNeue.className} text-4xl text-white`}>{championship.name}</h1>
@@ -241,7 +245,7 @@ export default function LeaguePage() {
                     const ot = maxS > 10 && minS >= 10;
                     const code = win ? (ot ? 'GYH' : 'GY') : (ot ? 'VH' : 'V');
                     const color = win ? (ot ? 'bg-green-600/60' : 'bg-green-600') : (ot ? 'bg-red-600/60' : 'bg-red-600');
-                    const dateStr = (m.match.matchAt || m.match.matchDate) ? new Date(m.match.matchAt || m.match.matchDate).toLocaleDateString() : '';
+                    const dateStr = (m.match.matchAt || m.match.matchDate) ? new Date(m.match.matchAt || m.match.matchDate).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) : '';
                     const score = `${hs} : ${as}`;
                     const oppName = isHome ? (m.awayTeam?.name || m.match.awayTeamId) : (m.homeTeam?.name || m.match.homeTeamId);
                     const title = `${score} (${isHome ? s.name : oppName} - ${isHome ? oppName : s.name})\n${dateStr}`;
@@ -251,7 +255,7 @@ export default function LeaguePage() {
                     <tr key={s.teamId} className="text-white">
                       <td className="py-2 pr-4">{s.rank}</td>
                       <td className="py-2 pr-4 flex items-center gap-2">
-                        <Image src={s.logo || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
+                        <Image src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
                         <button type="button" onClick={() => setRankModal({ open: true, teamId: s.teamId, teamName: s.name })} className="underline-offset-2 hover:underline cursor-pointer">{s.name}</button>
                         {(uptoGameDay !== 'all' || uptoRound !== 'all') && moveIcon && (
                           <span className="ml-2 inline-flex items-center gap-1">{moveIcon}<span className="text-white/70">{delta ? (delta > 0 ? `+${delta}` : `${delta}`) : '0'}</span></span>
