@@ -73,7 +73,7 @@ export default function DashboardPage() {
   const upcoming = mySortedMatches.filter(m => (m.when?.getTime?.() || 0) >= now);
   const nextMatch = upcoming[0] || null;
   const nextMatchTitle = nextMatch?.title || 'Nincs következő mérkőzés';
-  const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', {  }) : '';
+  const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '';
   const nextMatchTable = nextMatch?.row?.match?.matchTable ? String(nextMatch.row.match.matchTable) : '';
 
   const upcomingFive = upcoming.slice(0, 5).map((m) => ({
