@@ -73,12 +73,12 @@ export default function DashboardPage() {
   const upcoming = mySortedMatches.filter(m => (m.when?.getTime?.() || 0) >= now);
   const nextMatch = upcoming[0] || null;
   const nextMatchTitle = nextMatch?.title || 'Nincs következő mérkőzés';
-  const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '';
+  const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', {  }) : '';
   const nextMatchTable = nextMatch?.row?.match?.matchTable ? String(nextMatch.row.match.matchTable) : '';
 
   const upcomingFive = upcoming.slice(0, 5).map((m) => ({
     matchTitle: m.title,
-    date: m.when ? m.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '',
+    date: m.when ? m.when.toLocaleString('hu-HU', {  }) : '',
     table: String(m.table || ''),
     matchId: m.row.match?.id || m.row.id,
     teamA: { 
@@ -252,7 +252,7 @@ export default function DashboardPage() {
                 <UpcomingMatchCard
                   key={idx}
                   matchTitle={match.matchTitle}
-                  date={new Date(match.date).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) + ' ' + new Date(match.date).toLocaleTimeString('hu-HU', { timeZone: 'UTC' })}
+                  date={new Date(match.date).toLocaleDateString('hu-HU', { }) + ' ' + new Date(match.date).toLocaleTimeString('hu-HU', {  })}
                   table={match.table}
                   matchId={match.matchId}
                   teamA={match.teamA}
