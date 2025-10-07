@@ -66,12 +66,13 @@ export default function LeaguePage() {
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
       const dateAt = new Date(row?.match?.matchDate || row?.match?.matchAt || null);
-      const timeAt = new Date(row?.match?.matchTime);
+      const timeAt = row?.match?.matchTime;
+      console.log(timeAt);
       if (!dateAt) return null;
       return {
         id: row.match.id,
         date: dateAt.toLocaleDateString('hu-HU', { timeZone: 'UTC' }),
-        time: timeAt.toLocaleTimeString('hu-HU', { timeZone: 'UTC' }),
+        time: timeAt,
         table: row.match.matchTable,
         round: row.match.matchRound,
         home: row.homeTeam?.name || row.match.homeTeamId,
@@ -95,10 +96,12 @@ export default function LeaguePage() {
       date,
       round: (items[0] as any)?.round ?? (idx + 1),
       matches: items
-        .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}),
+          // raw timestamp for reliable sorting
+          sortTime: new Date(m.time).getTime(),
+          // formatted time for display
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
           tableNumber: m.table,
           round: m.round,
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -106,6 +109,7 @@ export default function LeaguePage() {
           homeScore: m.homeScore,
           awayScore: m.awayScore,
         }))
+        .sort((a: any, b: any) => (a.sortTime - b.sortTime) || (a.tableNumber - b.tableNumber))
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -331,7 +335,7 @@ export default function LeaguePage() {
                   return rounds.map(([rStr, items]) => {
                     const r = Number(rStr);
                     const key = `${matchDay.id}:${r}`;
-                    const sorted = (items as any[]).sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime() || ((a.tableNumber as any) - (b.tableNumber as any)));
+                    const sorted = (items as any[]).sort((a, b) => (a.sortTime - b.sortTime) || ((a.tableNumber as any) - (b.tableNumber as any)));
                     return (
                       <div key={key} className="bg-black/20 rounded-lg">
                         <button onClick={() => toggleRound(key)} className="w-full flex items-center justify-between px-4 py-3 border-b border-white/10">
