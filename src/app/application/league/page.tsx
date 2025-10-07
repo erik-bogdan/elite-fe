@@ -65,13 +65,13 @@ export default function LeaguePage() {
   // Build match days list grouped by date and then rounds (read-only)
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
-      const dateAt = row?.match?.matchDate || row?.match?.matchAt || null;
-      const timeAt = row?.match?.matchTime || row?.match?.matchAt || null;
+      const dateAt = new Date(row?.match?.matchDate || row?.match?.matchAt || null);
+      const timeAt = new Date(row?.match?.matchTime || row?.match?.matchAt || null);
       if (!dateAt) return null;
       return {
         id: row.match.id,
-        date: dateAt,
-        time: timeAt,
+        date: dateAt.toLocaleDateString('hu-HU', { timeZone: 'UTC' }),
+        time: timeAt.toLocaleTimeString('hu-HU', { timeZone: 'UTC' }),
         table: row.match.matchTable,
         round: row.match.matchRound,
         home: row.homeTeam?.name || row.match.homeTeamId,
@@ -315,7 +315,7 @@ export default function LeaguePage() {
         {matchDayList.map((matchDay) => (
           <div key={matchDay.id} className="bg-gradient-to-br from-[#001a3a]/80 to-[#002b6b]/90 rounded-xl overflow-hidden border border-[#ff5c1a]/40">
             <button onClick={() => toggleMatchDay(matchDay.id)} className="w-full flex items-center justify-between p-6 hover:bg-[#001a3a]/60 transition-colors">
-              <h2 className={`${bebasNeue.className} text-2xl text-white`}>Gameday {matchDay.id} - {new Date(matchDay.date).toLocaleDateString()}</h2>
+              <h2 className={`${bebasNeue.className} text-2xl text-white`}>Gameday {matchDay.id} - {new Date(matchDay.date).toLocaleDateString('hu-HU', { timeZone: 'UTC' })}</h2>
               {expandedMatchDays.includes(matchDay.id) ? <FiChevronUp className="w-6 h-6 text-[#ff5c1a]" /> : <FiChevronDown className="w-6 h-6 text-[#ff5c1a]" />}
             </button>
             {expandedMatchDays.includes(matchDay.id) && (
