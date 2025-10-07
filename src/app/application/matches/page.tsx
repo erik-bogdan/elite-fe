@@ -59,8 +59,8 @@ export default function MyMatchesPage() {
       console.log(match.matchTime);
       return {
         id: match.id,
-        date: new Date(match.matchTime).toLocaleDateString('hu-HU', { timeZone: 'UTC' }),
-        time: new Date(match.matchAt || match.matchTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+        date: new Date(match.matchTime).toLocaleDateString('hu-HU', { }),
+        time: new Date(match.matchAt || match.matchTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'  }),
         table: match.matchTable,
         round: match.matchRound,
         gameDay: match.gameDay || 1,

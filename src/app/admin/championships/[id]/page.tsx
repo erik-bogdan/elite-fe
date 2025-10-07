@@ -222,7 +222,7 @@ export default function ChampionshipView() {
         .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}),
           tableNumber: m.table,
           round: m.round,
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -261,7 +261,7 @@ export default function ChampionshipView() {
         .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}),
           tableNumber: m.table,
           date: new Date(m.date).toLocaleDateString(),
           homeTeam: { name: m.home, logo: m.homeLogo },

@@ -98,7 +98,7 @@ export default function LeaguePage() {
         .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
         .map((m: any) => ({
           id: m.id,
-          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}),
           tableNumber: m.table,
           round: m.round,
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -245,7 +245,7 @@ export default function LeaguePage() {
                     const ot = maxS > 10 && minS >= 10;
                     const code = win ? (ot ? 'GYH' : 'GY') : (ot ? 'VH' : 'V');
                     const color = win ? (ot ? 'bg-green-600/60' : 'bg-green-600') : (ot ? 'bg-red-600/60' : 'bg-red-600');
-                    const dateStr = (m.match.matchAt || m.match.matchDate) ? new Date(m.match.matchAt || m.match.matchDate).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) : '';
+                    const dateStr = (m.match.matchAt || m.match.matchDate) ? new Date(m.match.matchAt || m.match.matchDate).toLocaleDateString('hu-HU', { }) : '';
                     const score = `${hs} : ${as}`;
                     const oppName = isHome ? (m.awayTeam?.name || m.match.awayTeamId) : (m.homeTeam?.name || m.match.homeTeamId);
                     const title = `${score} (${isHome ? s.name : oppName} - ${isHome ? oppName : s.name})\n${dateStr}`;
