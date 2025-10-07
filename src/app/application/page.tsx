@@ -252,7 +252,7 @@ export default function DashboardPage() {
                 <UpcomingMatchCard
                   key={idx}
                   matchTitle={match.matchTitle}
-                  date={new Date(match.date).toLocaleDateString('hu-HU', { }) + ' ' + new Date(match.date).toLocaleTimeString('hu-HU', {  })}
+                  date={new Date(match.date).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) + ' ' + new Date(match.date).toLocaleTimeString('hu-HU', { timeZone: 'UTC' })}
                   table={match.table}
                   matchId={match.matchId}
                   teamA={match.teamA}
