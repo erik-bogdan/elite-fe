@@ -62,17 +62,18 @@ export default function LeaguePage() {
   const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
   const abs = (p?: string | null) => (p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '');
 
-  // Build match days list grouped by date and then rounds (read-only)
+  // Build match days list grouped by date (UTC) and then rounds (read-only)
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
-      const dateAt = new Date(row?.match?.matchDate || row?.match?.matchAt || null);
-      const timeAt = row?.match?.matchTime;
-      console.log(timeAt);
-      if (!dateAt) return null;
+      const dateSrc = row?.match?.matchAt || row?.match?.matchDate || null;
+      const timeSrc = row?.match?.matchTime || row?.match?.matchAt || null;
+      if (!dateSrc) return null;
+      const dateIso = new Date(dateSrc).toISOString();
+      const timeIso = timeSrc ? new Date(timeSrc).toISOString() : null;
       return {
         id: row.match.id,
-        date: dateAt.toLocaleDateString('hu-HU', { timeZone: 'UTC' }),
-        time: timeAt,
+        date: dateIso,
+        time: timeIso,
         table: row.match.matchTable,
         round: row.match.matchRound,
         home: row.homeTeam?.name || row.match.homeTeamId,
@@ -99,9 +100,9 @@ export default function LeaguePage() {
         .map((m: any) => ({
           id: m.id,
           // raw timestamp for reliable sorting
-          sortTime: new Date(m.time).getTime(),
+          sortTime: m.time ? new Date(m.time).getTime() : 0,
           // formatted time for display
-          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+          time: m.time ? new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '',
           tableNumber: m.table,
           round: m.round,
           homeTeam: { name: m.home, logo: m.homeLogo },
@@ -111,7 +112,7 @@ export default function LeaguePage() {
         }))
         .sort((a: any, b: any) => (a.sortTime - b.sortTime) || (a.tableNumber - b.tableNumber))
     }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const toggleMatchDay = (matchDayId: number) => {
     setExpandedMatchDays(prev => prev.includes(matchDayId) ? prev.filter(id => id !== matchDayId) : [...prev, matchDayId]);
@@ -319,7 +320,7 @@ export default function LeaguePage() {
         {matchDayList.map((matchDay) => (
           <div key={matchDay.id} className="bg-gradient-to-br from-[#001a3a]/80 to-[#002b6b]/90 rounded-xl overflow-hidden border border-[#ff5c1a]/40">
             <button onClick={() => toggleMatchDay(matchDay.id)} className="w-full flex items-center justify-between p-6 hover:bg-[#001a3a]/60 transition-colors">
-              <h2 className={`${bebasNeue.className} text-2xl text-white`}>Gameday {matchDay.id} - {new Date(matchDay.date).toLocaleDateString()}</h2>
+              <h2 className={`${bebasNeue.className} text-2xl text-white`}>Gameday {matchDay.id} - {new Date(matchDay.date).toLocaleDateString('hu-HU', { timeZone: 'UTC' })}</h2>
               {expandedMatchDays.includes(matchDay.id) ? <FiChevronUp className="w-6 h-6 text-[#ff5c1a]" /> : <FiChevronDown className="w-6 h-6 text-[#ff5c1a]" />}
             </button>
             {expandedMatchDays.includes(matchDay.id) && (
