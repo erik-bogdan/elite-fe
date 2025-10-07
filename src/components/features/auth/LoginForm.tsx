@@ -111,7 +111,7 @@ export const LoginForm = () => {
 
         <div className="text-sm">
           <a
-            href="#"
+            href="/auth/forgot-password"
             className={`${bebasNeue.className} font-medium text-[#ff5c1a] hover:text-[#ff7c3a] transition-colors tracking-wider`}
           >
             ELFELEJTETT JELSZÓ?
