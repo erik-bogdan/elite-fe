@@ -71,7 +71,7 @@ export default function ScriptModal({ isOpen, onClose, leagueMatches, championsh
           const timeKey = matchTime ? new Date(matchTime).toLocaleTimeString('hu-HU', { 
             hour: '2-digit', 
             minute: '2-digit',
-            
+            timeZone: 'UTC'
           }) : startTime;
           
           if (!timeSlots.has(timeKey)) {
