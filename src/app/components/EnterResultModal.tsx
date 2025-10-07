@@ -112,24 +112,24 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
       {/* Overlay */}
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto rounded-2xl bg-black/80 border-2 border-[#ff5c1a] shadow-2xl shadow-[#ff5c1a44] p-4 md:p-8 flex flex-col animate-fade-in my-4">
+      <div className="relative z-10 w-full max-w-4xl mx-auto rounded-2xl bg-black/80 border-2 border-[#ff5c1a] shadow-2xl shadow-[#ff5c1a44] p-3 sm:p-4 md:p-8 flex flex-col animate-fade-in my-2 sm:my-4 max-h-[95vh] overflow-y-auto">
         {/* Close button */}
         <button className="absolute top-2 right-2 md:top-4 md:right-4 text-white hover:text-[#ff5c1a] text-2xl" onClick={onClose}>
           <FiX />
         </button>
         {/* Teams and VS */}
-        <div className="flex flex-row items-start justify-between gap-2 md:gap-8 mb-4 md:mb-8">
+        <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-4 lg:gap-8 mb-4 md:mb-8">
           {/* Team A */}
-          <div className="flex-1 flex flex-col items-center gap-2 md:gap-4 min-w-0">
-            <div className={`${bebasNeue.className} text-lg md:text-2xl text-white font-bold mb-2 md:mb-4 text-center`}>{teamA.name}</div>
-            <div className="grid grid-cols-1 gap-2 md:gap-4 w-full">
+          <div className="flex-1 flex flex-col items-center gap-2 md:gap-4 min-w-0 w-full lg:w-auto">
+            <div className={`${bebasNeue.className} text-base sm:text-lg md:text-2xl text-white font-bold mb-2 md:mb-4 text-center`}>{teamA.name}</div>
+            <div className="grid grid-cols-1 gap-2 md:gap-4 w-full max-w-xs">
                {teamA.players.map((p) => {
                 const selected = selectedA.includes(p.id);
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    className={`w-full px-3 md:px-6 py-2 md:py-4 rounded-xl text-sm md:text-lg font-semibold border-2 transition-all duration-150 shadow-md
+                    className={`w-full px-3 md:px-6 py-2 md:py-4 rounded-xl text-xs sm:text-sm md:text-lg font-semibold border-2 transition-all duration-150 shadow-md
                       ${selected 
                         ? "bg-[#ff5c1a] border-[#ff5c1a] text-white scale-[1.02] shadow-lg shadow-[#ff5c1a]/50" 
                         : "bg-white/10 border-white/20 text-white hover:bg-[#ff5c1a]/30 hover:border-[#ff5c1a]"
@@ -147,8 +147,8 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                 );
               })}
             </div>
-            <div className="mt-2 md:mt-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-              <div>
+            <div className="mt-2 md:mt-4 flex flex-col items-center gap-3 w-full">
+              <div className="flex flex-col items-center">
                 <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">Pohár</label>
                 <input
                   type="number"
@@ -156,16 +156,16 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                   max={25}
                   value={cupsA}
                   onChange={e => setCupsA(Number(e.target.value))}
-                  className={`w-16 md:w-24 text-center bg-black/60 border-2 ${cupsA === 10 || cupsA > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
+                  className={`w-20 sm:w-24 text-center bg-black/60 border-2 ${cupsA === 10 || cupsA > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
                   placeholder="Pohár"
                 />
               </div>
-              <div>
+              <div className="flex flex-col items-center">
                 <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">MVP</label>
                 <select
                   value={mvpA}
                   onChange={e => setMvpA(e.target.value)}
-                  className="bg-black/60 border-2 border-[#ff5c1a] text-white rounded-lg px-2 md:px-4 py-1 md:py-2 text-sm md:text-lg focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]"
+                  className="bg-black/60 border-2 border-[#ff5c1a] text-white rounded-lg px-2 md:px-4 py-1 md:py-2 text-xs sm:text-sm md:text-lg focus:outline-none focus:ring-2 focus:ring-[#ff5c1a] w-full max-w-xs"
                 >
                   {selectedA.map((id) => {
                     const pl = teamA.players.find(pp => pp.id === id);
@@ -176,8 +176,8 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
             </div>
           </div>
           {/* VS */}
-          <div className="flex flex-col items-center justify-center mx-1 md:mx-4">
-            <div className={`${bebasNeue.className} text-2xl md:text-4xl text-[#ff5c1a] font-bold mb-2`}>VS</div>
+          <div className="flex flex-col items-center justify-center mx-1 md:mx-4 order-first lg:order-none">
+            <div className={`${bebasNeue.className} text-xl sm:text-2xl md:text-4xl text-[#ff5c1a] font-bold mb-2`}>VS</div>
             {/* Winner indicator */}
             {winner && (
               <div className="text-center">
@@ -199,16 +199,16 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
             )}
           </div>
           {/* Team B */}
-          <div className="flex-1 flex flex-col items-center gap-2 md:gap-4 min-w-0">
-            <div className={`${bebasNeue.className} text-lg md:text-2xl text-white font-bold mb-2 md:mb-4 text-center`}>{teamB.name}</div>
-            <div className="grid grid-cols-1 gap-2 md:gap-4 w-full">
+          <div className="flex-1 flex flex-col items-center gap-2 md:gap-4 min-w-0 w-full lg:w-auto">
+            <div className={`${bebasNeue.className} text-base sm:text-lg md:text-2xl text-white font-bold mb-2 md:mb-4 text-center`}>{teamB.name}</div>
+            <div className="grid grid-cols-1 gap-2 md:gap-4 w-full max-w-xs">
                {teamB.players.map((p) => {
                 const selected = selectedB.includes(p.id);
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    className={`w-full px-3 md:px-6 py-2 md:py-4 rounded-xl text-sm md:text-lg font-semibold border-2 transition-all duration-150 shadow-md
+                    className={`w-full px-3 md:px-6 py-2 md:py-4 rounded-xl text-xs sm:text-sm md:text-lg font-semibold border-2 transition-all duration-150 shadow-md
                       ${selected 
                         ? "bg-[#ff5c1a] border-[#ff5c1a] text-white scale-[1.02] shadow-lg shadow-[#ff5c1a]/50" 
                         : "bg-white/10 border-white/20 text-white hover:bg-[#ff5c1a]/30 hover:border-[#ff5c1a]"
@@ -226,8 +226,8 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                 );
               })}
             </div>
-            <div className="mt-2 md:mt-4 flex flex-col sm:flex-row items-center gap-2 md:gap-4">
-              <div>
+            <div className="mt-2 md:mt-4 flex flex-col items-center gap-3 w-full">
+              <div className="flex flex-col items-center">
                 <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">Pohár</label>
                 <input
                   type="number"
@@ -235,16 +235,16 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                   max={25}
                   value={cupsB}
                   onChange={e => setCupsB(Number(e.target.value))}
-                  className={`w-16 md:w-24 text-center bg-black/60 border-2 ${cupsB === 10 || cupsB > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
+                  className={`w-20 sm:w-24 text-center bg-black/60 border-2 ${cupsB === 10 || cupsB > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
                   placeholder="Pohár"
                 />
               </div>
-              <div>
+              <div className="flex flex-col items-center">
                 <label className="block text-xs md:text-sm text-[#ff5c1a] font-bold mb-1 md:mb-2">MVP</label>
                 <select
                   value={mvpB}
                   onChange={e => setMvpB(e.target.value)}
-                  className="bg-black/60 border-2 border-[#ff5c1a] text-white rounded-lg px-2 md:px-4 py-1 md:py-2 text-sm md:text-lg focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]"
+                  className="bg-black/60 border-2 border-[#ff5c1a] text-white rounded-lg px-2 md:px-4 py-1 md:py-2 text-xs sm:text-sm md:text-lg focus:outline-none focus:ring-2 focus:ring-[#ff5c1a] w-full max-w-xs"
                 >
                   {selectedB.map((id) => {
                     const pl = teamB.players.find(pp => pp.id === id);
@@ -269,16 +269,16 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
           )}
         </div>
         {/* Save/Cancel buttons */}
-        <div className="flex gap-2 md:gap-4 justify-center mt-4 md:mt-8">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mt-4 md:mt-8">
           <button
-            className={`${canSave ? 'bg-[#ff5c1a] hover:bg-[#ff7c3a]' : 'bg-gray-500 cursor-not-allowed'} text-white font-bold px-6 md:px-12 py-2 md:py-3 rounded-xl shadow-md transition text-base md:text-xl`}
+            className={`${canSave ? 'bg-[#ff5c1a] hover:bg-[#ff7c3a]' : 'bg-gray-500 cursor-not-allowed'} text-white font-bold px-6 md:px-12 py-3 md:py-3 rounded-xl shadow-md transition text-sm sm:text-base md:text-xl w-full sm:w-auto`}
             onClick={() => onSubmit({ cupsA, cupsB, mvpAId: mvpA, mvpBId: mvpB, selectedAIds: selectedA, selectedBIds: selectedB })}
             disabled={!canSave}
           >
             Mentés
           </button>
           <button
-            className="bg-white/10 hover:bg-white/20 text-white font-bold px-6 md:px-12 py-2 md:py-3 rounded-xl shadow-md transition text-base md:text-xl"
+            className="bg-white/10 hover:bg-white/20 text-white font-bold px-6 md:px-12 py-3 md:py-3 rounded-xl shadow-md transition text-sm sm:text-base md:text-xl w-full sm:w-auto"
             onClick={onClose}
           >
             Cancel

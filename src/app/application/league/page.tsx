@@ -122,15 +122,15 @@ export default function LeaguePage() {
   };
 
   return (
-    <div className="min-h-screen p-8">
-      {/* Header */}
-      <div className="flex items-center gap-6 mb-8">
-        <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#ff5c1a]">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+      {/* Header - Responsive */}
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full overflow-hidden border-4 border-[#ff5c1a] flex-shrink-0">
           <Image src={abs(championship.logo) || '/elitelogo.png'} alt={championship.name} width={96} height={96} className="object-cover w-full h-full" />
         </div>
-        <div>
-          <h1 className={`${bebasNeue.className} text-4xl text-white`}>{championship.name}</h1>
-          <span className="inline-block px-3 py-1 rounded-full bg-[#ff5c1a] text-white font-bold">
+        <div className="text-center sm:text-left">
+          <h1 className={`${bebasNeue.className} text-2xl sm:text-3xl lg:text-4xl text-white`}>{championship.name}</h1>
+          <span className="inline-block px-3 py-1 rounded-full bg-[#ff5c1a] text-white font-bold text-sm sm:text-base">
             {championship.isStarted ? (championship.phase === 'knockout' ? 'Knockout' : 'Alapszkasz') : 'Nem kezdőtött el'}
           </span>
         </div>
@@ -168,46 +168,52 @@ export default function LeaguePage() {
           <h3 className={`${bebasNeue.className} text-2xl text-white`}>Tabella</h3>
         </div>
         {championship.isStarted && (
-          <div className="flex items-center justify-end mb-3 gap-2">
-            <label className="text-white/70">Játéknap:</label>
-            <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value); setUptoGameDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
-              <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => (rm.match.matchAt || rm.match.matchDate) && new Date(rm.match.matchAt || rm.match.matchDate).toISOString().slice(0,10)))).filter(Boolean).sort().map((d: string, idx: number) => (
-                <option key={`day-${d}`} value={d}>Gameday {idx + 1}</option>
-              ))}
-            </select>
-            <label className="text-white/70 ml-4">Játéknapig:</label>
-            <select value={uptoGameDay} onChange={(e) => { setUptoGameDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setSelectedDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
-              <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
-                <option key={`gd-${g}`} value={g}>Gameday {g}</option>
-              ))}
-            </select>
-            <label className="text-white/70 ml-4">Fordulóig:</label>
-            <select value={uptoRound} onChange={(e) => { setUptoRound(e.target.value === 'all' ? 'all' : Number(e.target.value)); setSelectedDay('all'); setUptoGameDay('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
-              <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.matchRound))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((r: number) => (
-                <option key={`rd-${r}`} value={r}>Forduló {r}</option>
-              ))}
-            </select>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end mb-3 gap-3 sm:gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+              <label className="text-white/70 text-sm">Játéknap:</label>
+              <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value); setUptoGameDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
+                <option value="all">Összes</option>
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => (rm.match.matchAt || rm.match.matchDate) && new Date(rm.match.matchAt || rm.match.matchDate).toISOString().slice(0,10)))).filter(Boolean).sort().map((d: string, idx: number) => (
+                  <option key={`day-${d}`} value={d}>Gameday {idx + 1}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+              <label className="text-white/70 text-sm">Játéknapig:</label>
+              <select value={uptoGameDay} onChange={(e) => { setUptoGameDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setSelectedDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
+                <option value="all">Összes</option>
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+                  <option key={`gd-${g}`} value={g}>Gameday {g}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+              <label className="text-white/70 text-sm">Fordulóig:</label>
+              <select value={uptoRound} onChange={(e) => { setUptoRound(e.target.value === 'all' ? 'all' : Number(e.target.value)); setSelectedDay('all'); setUptoGameDay('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
+                <option value="all">Összes</option>
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.matchRound))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((r: number) => (
+                  <option key={`rd-${r}`} value={r}>Forduló {r}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-[#ff5c1a]/30">
             <thead>
               <tr className="text-left text-white">
-                <th className="py-3 pr-4">#</th>
-                <th className="py-3 pr-4">Csapat</th>
-                <th className="py-3 pr-4">Meccs</th>
-                <th className="py-3 pr-4">GY</th>
-                <th className="py-3 pr-4">V</th>
-                <th className="py-3 pr-4">Győzelem</th>
-                <th className="py-3 pr-4">Győzelem (h)</th>
-                <th className="py-3 pr-4">Vereség (h)</th>
-                <th className="py-3 pr-4">Vereség</th>
-                <th className="py-3 pr-4">PK</th>
-                <th className="py-3 pr-4">Pont</th>
-                <th className="py-3 pr-4">Forma</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm">#</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm">Csapat</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden sm:table-cell">Meccs</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm">GY</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm">V</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">Győzelem</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">Győzelem (h)</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">Vereség (h)</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">Vereség</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden md:table-cell">PK</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm">Pont</th>
+                <th className="py-3 pr-2 sm:pr-4 text-xs sm:text-sm hidden sm:table-cell">Forma</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#ff5c1a]/20">
@@ -258,24 +264,24 @@ export default function LeaguePage() {
                   });
                   return (
                     <tr key={s.teamId} className="text-white">
-                      <td className="py-2 pr-4">{s.rank}</td>
-                      <td className="py-2 pr-4 flex items-center gap-2">
-                        <Image src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
-                        <button type="button" onClick={() => setRankModal({ open: true, teamId: s.teamId, teamName: s.name })} className="underline-offset-2 hover:underline cursor-pointer">{s.name}</button>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm">{s.rank}</td>
+                      <td className="py-2 pr-2 sm:pr-4 flex items-center gap-2 min-w-0">
+                        <Image src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={20} height={20} className="rounded-full border border-white/10 flex-shrink-0" />
+                        <button type="button" onClick={() => setRankModal({ open: true, teamId: s.teamId, teamName: s.name })} className="underline-offset-2 hover:underline cursor-pointer text-xs sm:text-sm truncate">{s.name}</button>
                         {(uptoGameDay !== 'all' || uptoRound !== 'all') && moveIcon && (
-                          <span className="ml-2 inline-flex items-center gap-1">{moveIcon}<span className="text-white/70">{delta ? (delta > 0 ? `+${delta}` : `${delta}`) : '0'}</span></span>
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs">{moveIcon}<span className="text-white/70">{delta ? (delta > 0 ? `+${delta}` : `${delta}`) : '0'}</span></span>
                         )}
                       </td>
-                      <td className="py-2 pr-4">{s.games ?? 0}</td>
-                      <td className="py-2 pr-4">{s.winsTotal ?? 0}</td>
-                      <td className="py-2 pr-4">{s.lossesTotal ?? 0}</td>
-                      <td className="py-2 pr-4">{s.winsRegular ?? 0}</td>
-                      <td className="py-2 pr-4">{s.winsOT ?? 0}</td>
-                      <td className="py-2 pr-4">{s.lossesOT ?? 0}</td>
-                      <td className="py-2 pr-4">{s.lossesRegular ?? 0}</td>
-                      <td className="py-2 pr-4">{s.cupDiff ?? 0}</td>
-                      <td className="py-2 pr-4">{s.points ?? 0}</td>
-                      <td className="py-2 pr-4">
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden sm:table-cell">{s.games ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm">{s.winsTotal ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm">{s.lossesTotal ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">{s.winsRegular ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">{s.winsOT ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">{s.lossesOT ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden lg:table-cell">{s.lossesRegular ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden md:table-cell">{s.cupDiff ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm font-bold">{s.points ?? 0}</td>
+                      <td className="py-2 pr-2 sm:pr-4 text-xs sm:text-sm hidden sm:table-cell">
                         <Tooltip.Provider delayDuration={100}>
                           <div className="flex items-center gap-1">
                             {last5.length === 0 ? (
@@ -283,7 +289,7 @@ export default function LeaguePage() {
                             ) : last5.map((it, i) => (
                               <Tooltip.Root key={i}>
                                 <Tooltip.Trigger asChild>
-                                  <button type="button" className={`inline-flex items-center justify-center rounded ${it.color} text-[9px] leading-none w-6 h-6 text-white`}>
+                                  <button type="button" className={`inline-flex items-center justify-center rounded ${it.color} text-[8px] leading-none w-5 h-5 sm:w-6 sm:h-6 text-white`}>
                                     {it.code}
                                   </button>
                                 </Tooltip.Trigger>
@@ -349,23 +355,23 @@ export default function LeaguePage() {
                               const isOT = Math.max(Number(match.homeScore||0), Number(match.awayScore||0)) > 10 && Math.min(Number(match.homeScore||0), Number(match.awayScore||0)) >= 10;
                               const keyId = String(match.id);
                               return (
-                                <div key={keyId} className="bg-black/30 rounded-lg p-4">
-                                  <div className="w-full flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
+                                <div key={keyId} className="bg-black/30 rounded-lg p-3 sm:p-4">
+                                  <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
                                       <div className="flex items-center gap-2">
-                                        <Image src={match.homeTeam.logo || '/elitelogo.png'} alt={match.homeTeam.name} width={32} height={32} className="rounded-full" />
-                                        <span className="text-white">{match.homeTeam.name}</span>
+                                        <Image src={match.homeTeam.logo || '/elitelogo.png'} alt={match.homeTeam.name} width={24} height={24} className="rounded-full flex-shrink-0" />
+                                        <span className="text-white text-sm sm:text-base truncate">{match.homeTeam.name}</span>
                                       </div>
-                                      <span className="text-white">-</span>
+                                      <span className="text-white hidden sm:inline">-</span>
                                       <div className="flex items-center gap-2">
-                                        <Image src={match.awayTeam.logo || '/elitelogo.png'} alt={match.awayTeam.name} width={32} height={32} className="rounded-full" />
-                                        <span className="text-white">{match.awayTeam.name}</span>
+                                        <Image src={match.awayTeam.logo || '/elitelogo.png'} alt={match.awayTeam.name} width={24} height={24} className="rounded-full flex-shrink-0" />
+                                        <span className="text-white text-sm sm:text-base truncate">{match.awayTeam.name}</span>
                                       </div>
-                                      <span className="text-[#ff5c1a]">{typeof match.homeScore === 'number' && typeof match.awayScore === 'number' ? `(${match.homeScore} - ${match.awayScore}${isOT ? ' OT' : ''})` : ''}</span>
+                                      <span className="text-[#ff5c1a] text-sm sm:text-base">{typeof match.homeScore === 'number' && typeof match.awayScore === 'number' ? `(${match.homeScore} - ${match.awayScore}${isOT ? ' OT' : ''})` : ''}</span>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                      <span className="text-[#e0e6f7]">{match.time}</span>
-                                      <span className="text-[#e0e6f7]">Asztal: {match.tableNumber}</span>
+                                    <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                      <span className="text-[#e0e6f7] text-xs sm:text-sm">{match.time}</span>
+                                      <span className="text-[#e0e6f7] text-xs sm:text-sm">Asztal: {match.tableNumber}</span>
                                     </div>
                                   </div>
                                 </div>

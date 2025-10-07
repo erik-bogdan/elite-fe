@@ -1359,49 +1359,52 @@ export default function MatchTrackingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#001a3a] to-[#002b6b] p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#001a3a] to-[#002b6b] p-2 sm:p-4">
       {/* Header */}
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-0">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-white hover:text-[#ff5c1a] transition-colors"
+            className="flex items-center gap-2 text-white hover:text-[#ff5c1a] transition-colors text-sm sm:text-base order-1 sm:order-1"
           >
             <FiArrowLeft /> Vissza
           </button>
-          <h1 className={`${bebasNeue.className} text-2xl text-white text-center`}>
-            {matchMeta.homeTeam.name} vs {matchMeta.awayTeam.name}
+          <h1 className={`${bebasNeue.className} text-lg sm:text-xl lg:text-2xl text-white text-center order-2 sm:order-2`}>
+            <span className="block sm:hidden">{matchMeta.homeTeam.name}</span>
+            <span className="hidden sm:block">{matchMeta.homeTeam.name} vs {matchMeta.awayTeam.name}</span>
+            <span className="block sm:hidden text-sm text-[#ff5c1a]">VS</span>
+            <span className="block sm:hidden">{matchMeta.awayTeam.name}</span>
           </h1>
           {setupComplete && (
             <button
               onClick={undoLastAction}
-              className="flex items-center gap-2 text-white hover:text-[#ff5c1a] transition-colors"
+              className="flex items-center gap-2 text-white hover:text-[#ff5c1a] transition-colors text-sm sm:text-base order-3 sm:order-3"
               disabled={gameState.gameHistory.length === 0}
             >
-              <FiRotateCcw /> Visszavonás
+              <FiRotateCcw /> <span className="hidden sm:inline">Visszavonás</span>
             </button>
           )}
         </div>
 
         {/* Score Display */}
         {setupComplete && (
-          <div className="bg-black/30 rounded-2xl p-6 mb-6 border-2 border-[#ff5c1a]">
+          <div className="bg-black/30 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border-2 border-[#ff5c1a]">
             <div className="flex justify-between items-center">
-              <div className="text-center">
-                <div className={`${bebasNeue.className} text-4xl text-white`}>
+              <div className="text-center flex-1">
+                <div className={`${bebasNeue.className} text-2xl sm:text-3xl lg:text-4xl text-white`}>
                   {gameState.phase === 'overtime' ? (gameState.homeScore + (gameState.otHome ?? 0)) : gameState.homeScore}
                 </div>
-                <div className="text-[#ff5c1a] font-bold">{matchMeta.homeTeam.name}</div>
+                <div className="text-[#ff5c1a] font-bold text-xs sm:text-sm lg:text-base truncate">{matchMeta.homeTeam.name}</div>
               </div>
-              <div className="text-center">
-                <div className={`${bebasNeue.className} text-2xl text-[#ff5c1a]`}>VS</div>
-                <div className="text-white text-sm mt-2">{getPhaseDescription()}</div>
+              <div className="text-center px-2 sm:px-4">
+                <div className={`${bebasNeue.className} text-lg sm:text-xl lg:text-2xl text-[#ff5c1a]`}>VS</div>
+                <div className="text-white text-xs sm:text-sm mt-1 sm:mt-2">{getPhaseDescription()}</div>
               </div>
-              <div className="text-center">
-                <div className={`${bebasNeue.className} text-4xl text-white`}>
+              <div className="text-center flex-1">
+                <div className={`${bebasNeue.className} text-2xl sm:text-3xl lg:text-4xl text-white`}>
                   {gameState.phase === 'overtime' ? (gameState.awayScore + (gameState.otAway ?? 0)) : gameState.awayScore}
                 </div>
-                <div className="text-[#ff5c1a] font-bold">{matchMeta.awayTeam.name}</div>
+                <div className="text-[#ff5c1a] font-bold text-xs sm:text-sm lg:text-base truncate">{matchMeta.awayTeam.name}</div>
               </div>
             </div>
           </div>
@@ -1409,12 +1412,13 @@ export default function MatchTrackingPage() {
 
         {/* Current Turn Indicator */}
         {setupComplete && (
-          <div className="bg-black/30 rounded-2xl p-4 mb-6 border-2 border-[#ff5c1a]">
+          <div className="bg-black/30 rounded-2xl p-3 sm:p-4 mb-4 sm:mb-6 border-2 border-[#ff5c1a]">
             <div className="text-center">
-              <div className="text-white text-lg mb-2">
-                {gameState.currentTurn === 'home' ? matchMeta.homeTeam.name : matchMeta.awayTeam.name} dob
+              <div className="text-white text-sm sm:text-base lg:text-lg mb-1 sm:mb-2">
+                <span className="block sm:inline">{gameState.currentTurn === 'home' ? matchMeta.homeTeam.name : matchMeta.awayTeam.name}</span>
+                <span className="block sm:inline sm:ml-1">dob</span>
               </div>
-              <div className="text-[#ff5c1a] text-sm min-h-[20px]">
+              <div className="text-[#ff5c1a] text-xs sm:text-sm min-h-[16px] sm:min-h-[20px]">
                 {gameState.consecutiveThrows > 0 ? `Következő dobás: ${gameState.consecutiveThrows + 1}.` : ' '}
               </div>
             </div>
@@ -1423,19 +1427,19 @@ export default function MatchTrackingPage() {
 
         {/* Player Selection */}
         {!setupComplete && (
-          <div className="bg-black/30 rounded-2xl p-6 mb-6 border-2 border-[#ff5c1a]">
-            <h2 className={`${bebasNeue.className} text-xl text-white mb-4 text-center`}>Játékosok kiválasztása</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-black/30 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 border-2 border-[#ff5c1a]">
+            <h2 className={`${bebasNeue.className} text-lg sm:text-xl text-white mb-3 sm:mb-4 text-center`}>Játékosok kiválasztása</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Home Team */}
               <div>
                 <h3 className="text-[#ff5c1a] font-bold mb-3">{matchMeta.homeTeam.name}</h3>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-white text-sm">Első játékos</label>
+                    <label className="text-white text-xs sm:text-sm">Első játékos</label>
                     <select
                       value={selectedPlayers.homeFirst}
                       onChange={(e) => setSelectedPlayers(prev => ({ ...prev, homeFirst: e.target.value }))}
-                      className="w-full bg-black/60 border border-[#ff5c1a] text-white rounded-lg px-3 py-2"
+                      className="w-full bg-black/60 border border-[#ff5c1a] text-white rounded-lg px-2 sm:px-3 py-2 text-sm sm:text-base"
                     >
                       <option value="">Válassz játékost</option>
                       {matchMeta.homeTeam.players?.map((player: Player) => (
@@ -1444,11 +1448,11 @@ export default function MatchTrackingPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-white text-sm">Második játékos</label>
+                    <label className="text-white text-xs sm:text-sm">Második játékos</label>
                     <select
                       value={selectedPlayers.homeSecond}
                       onChange={(e) => setSelectedPlayers(prev => ({ ...prev, homeSecond: e.target.value }))}
-                      className="w-full bg-black/60 border border-[#ff5c1a] text-white rounded-lg px-3 py-2"
+                      className="w-full bg-black/60 border border-[#ff5c1a] text-white rounded-lg px-2 sm:px-3 py-2 text-sm sm:text-base"
                     >
                       <option value="">Válassz játékost</option>
                       {matchMeta.homeTeam.players?.map((player: Player) => (
@@ -1526,9 +1530,9 @@ export default function MatchTrackingPage() {
 
         {/* Action Buttons */}
         {setupComplete && (
-          <div className="bg-black/30 rounded-2xl p-6 border-2 border-[#ff5c1a]">
-            <h2 className={`${bebasNeue.className} text-xl text-white mb-6 text-center`}>Dobás követése</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+          <div className="bg-black/30 rounded-2xl p-4 sm:p-6 border-2 border-[#ff5c1a]">
+            <h2 className={`${bebasNeue.className} text-lg sm:text-xl text-white mb-4 sm:mb-6 text-center`}>Dobás követése</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
               {(() => {
                 const opts = getCurrentPlayerOptions();
                 return (
@@ -1538,7 +1542,7 @@ export default function MatchTrackingPage() {
                         key={`opt-a-${index}`}
                         onClick={() => !player.disabled && handleThrow(player.type, player.id)}
                         disabled={player.disabled}
-                        className={`w-full py-6 rounded-xl font-bold text-white transition-all ${
+                        className={`w-full py-4 sm:py-6 rounded-xl font-bold text-white transition-all text-sm sm:text-base ${
                           player.disabled 
                             ? 'bg-gray-500 cursor-not-allowed opacity-50' 
                             : player.type === 'hit' 
@@ -1547,8 +1551,8 @@ export default function MatchTrackingPage() {
                         }`}
                       >
                         <div className="flex items-center justify-center gap-2">
-                          {player.type === 'hit' ? <FiTarget /> : <FiX />}
-                          <span>{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
+                          {player.type === 'hit' ? <FiTarget className="w-4 h-4 sm:w-5 sm:h-5" /> : <FiX className="w-4 h-4 sm:w-5 sm:h-5" />}
+                          <span className="truncate">{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
                         </div>
                       </button>
                     ))}
@@ -1559,7 +1563,7 @@ export default function MatchTrackingPage() {
                         key={`opt-b-${index}`}
                         onClick={() => !player.disabled && handleThrow(player.type, player.id)}
                         disabled={player.disabled}
-                        className={`w-full py-6 rounded-xl font-bold text-white transition-all ${
+                        className={`w-full py-4 sm:py-6 rounded-xl font-bold text-white transition-all text-sm sm:text-base ${
                           player.disabled 
                             ? 'bg-gray-500 cursor-not-allowed opacity-50' 
                             : player.type === 'hit' 
@@ -1568,8 +1572,8 @@ export default function MatchTrackingPage() {
                         }`}
                       >
                         <div className="flex items-center justify-center gap-2">
-                          {player.type === 'hit' ? <FiTarget /> : <FiX />}
-                          <span>{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
+                          {player.type === 'hit' ? <FiTarget className="w-4 h-4 sm:w-5 sm:h-5" /> : <FiX className="w-4 h-4 sm:w-5 sm:h-5" />}
+                          <span className="truncate">{player.type === 'hit' ? 'HIT' : 'MISS'} - {player.name}</span>
                         </div>
                       </button>
                     ))}

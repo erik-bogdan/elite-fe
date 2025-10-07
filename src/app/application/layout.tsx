@@ -2,11 +2,11 @@
 
 import { ReactNode, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { Bebas_Neue } from "next/font/google";
 import NeonBg from '../components/NeonBg';
-import { FiMenu, FiX } from 'react-icons/fi';
+import { FiMenu, FiX, FiLogOut } from 'react-icons/fi';
 import NotificationsDropdown from "../components/NotificationsDropdown";
 import { authClient } from "../lib/auth-client";
 import { useSession } from '@/hooks/useAuth';
@@ -52,6 +52,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [isPending, session, router]);
 
   const initial = (nickname || "").trim().charAt(0).toUpperCase() || "?";
+
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full flex flex-col relative">
       <NeonBg />
@@ -117,59 +127,162 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Right side icons */}
             <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
               <NotificationsDropdown />
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-white hover:text-[#ff5c1a] hover:bg-[#ff5c1a]/10 rounded-full transition-colors"
+                aria-label="Sign out"
+                title="Kijelentkezés"
+              >
+                <FiLogOut className="w-5 h-5" />
+              </button>
               <div className="h-9 w-9 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-[#ff5c1a] to-[#002b6b] flex items-center justify-center shadow-lg shadow-[#ff5c1a]/20">
                 <span className="font-bold text-base md:text-lg text-white">{initial}</span>
               </div>
             </div>
           </div>
         </div>
-        {/* Mobile Nav Drawer */}
-        {mobileNavOpen && (
-          <div className="fixed inset-0 z-50  backdrop-blur-md flex flex-col bg-[#002b6b]/95">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-[#ff5c1a] bg-[#002b6b]/95">
-              <Image src="/logo.svg" alt="ELITE Beerpong logo" width={120} height={30} priority className="w-auto h-8" />
-              <button
-                className="text-white text-3xl p-2 focus:outline-none"
-                onClick={() => setMobileNavOpen(false)}
-                aria-label="Close menu"
+        {/* Mobile Nav Drawer - Full Screen with Animation */}
+        <AnimatePresence>
+          {mobileNavOpen && (
+            <motion.div 
+              initial={{ opacity: 0, x: "-100%" }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: "-100%" }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 300, 
+                damping: 30,
+                duration: 0.3 
+              }}
+              className="fixed inset-0 z-50 w-full h-[100vh] bg-[#002b6b] flex flex-col" 
+              style={{ backgroundColor: '#002b6b' }}
+            >
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.3 }}
+                className="flex items-center justify-between px-4 py-4 border-b border-[#ff5c1a]"
               >
-                <FiX />
-              </button>
-            </div>
-            <nav className="flex flex-col space-y-2 bg-[#002b6b]/95 px-6">
-              <Link href="/application" className={`${bebasNeue.className} text-xl text-white py-3 border-b border-[#ff5c1a]`} onClick={() => setMobileNavOpen(false)}>
-                DASHBOARD
-              </Link>
-              <Link href="/application/matches" className={`${bebasNeue.className} text-xl text-white py-3 border-b border-[#ff5c1a]`} onClick={() => setMobileNavOpen(false)}>
-                MATCHES
-              </Link>
-              <Link href="/application/live-matches" className={`${bebasNeue.className} text-xl text-white py-3 border-b border-[#ff5c1a]`} onClick={() => setMobileNavOpen(false)}>
-                ÉLŐ MECCSEK
-              </Link>
-              <Link href="/application/league" className={`${bebasNeue.className} text-xl text-white py-3 border-b border-[#ff5c1a]`} onClick={() => setMobileNavOpen(false)}>
-                LEAGUE
-              </Link>
-              <Link href="/application/profile" className={`${bebasNeue.className} text-xl text-white py-3 border-b border-[#ff5c1a]`} onClick={() => setMobileNavOpen(false)}>
-                PROFILE
-              </Link>
-            </nav>
-            <div className="flex items-center space-x-4 px-6 mt-8">
-              <div className="relative">
-                <button className="p-2 hover:bg-[#ff5c1a] hover:bg-opacity-20 rounded-full transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[#ff5c1a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
+                <Image src="/logo.svg" alt="ELITE Beerpong logo" width={120} height={30} priority className="w-auto h-8" />
+                <button
+                  className="text-white text-3xl p-2 focus:outline-none hover:bg-[#ff5c1a]/10 rounded-full transition-colors"
+                  onClick={() => setMobileNavOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <FiX />
                 </button>
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-[#ff5c1a] rounded-full text-xs flex items-center justify-center text-white font-bold shadow-lg shadow-[#ff5c1a]/40">
-                  3
-                </span>
-              </div>
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#ff5c1a] to-[#002b6b] flex items-center justify-center shadow-lg shadow-[#ff5c1a]/20">
-                <span className="font-bold text-base text-white">{initial}</span>
-              </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.3 }}
+                className="flex-1 flex flex-col justify-between bg-[#002b6b]"
+              >
+                <motion.nav 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.4 }}
+                  className="flex flex-col space-y-2 px-6 py-6"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4, duration: 0.3 }}
+                  >
+                    <Link href="/application" className={`${bebasNeue.className} text-2xl text-white py-4 border-b border-[#ff5c1a] block hover:text-[#ff5c1a] transition-colors`} onClick={() => setMobileNavOpen(false)}>
+                      DASHBOARD
+                    </Link>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5, duration: 0.3 }}
+                  >
+                    <Link href="/application/matches" className={`${bebasNeue.className} text-2xl text-white py-4 border-b border-[#ff5c1a] block hover:text-[#ff5c1a] transition-colors`} onClick={() => setMobileNavOpen(false)}>
+                      MECCSEK
+                    </Link>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6, duration: 0.3 }}
+                  >
+                    <Link href="/application/live-matches" className={`${bebasNeue.className} text-2xl text-white py-4 border-b border-[#ff5c1a] block hover:text-[#ff5c1a] transition-colors`} onClick={() => setMobileNavOpen(false)}>
+                      ÉLŐ MECCSEK
+                    </Link>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7, duration: 0.3 }}
+                  >
+                    <Link href="/application/league" className={`${bebasNeue.className} text-2xl text-white py-4 border-b border-[#ff5c1a] block hover:text-[#ff5c1a] transition-colors`} onClick={() => setMobileNavOpen(false)}>
+                      TABELLA
+                    </Link>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.8, duration: 0.3 }}
+                  >
+                    <Link href="/application/profile" className={`${bebasNeue.className} text-2xl text-white py-4 border-b border-[#ff5c1a] block hover:text-[#ff5c1a] transition-colors`} onClick={() => setMobileNavOpen(false)}>
+                      PROFIL
+                    </Link>
+                  </motion.div>
+                </motion.nav>
+                
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.9, duration: 0.4 }}
+                  className="flex items-center justify-center space-x-6 px-6 py-8 border-t border-[#ff5c1a]"
+                >
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.0, duration: 0.3, type: "spring", stiffness: 200 }}
+                    className="relative"
+                  >
+                    <button className="p-3 hover:bg-[#ff5c1a] hover:bg-opacity-20 rounded-full transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#ff5c1a]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </button>
+                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-[#ff5c1a] rounded-full text-xs flex items-center justify-center text-white font-bold shadow-lg shadow-[#ff5c1a]/40">
+                      3
+                    </span>
+                  </motion.div>
+                  
+                  <motion.button
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.1, duration: 0.3, type: "spring", stiffness: 200 }}
+                    onClick={handleSignOut}
+                    className="p-3 text-white hover:text-[#ff5c1a] hover:bg-[#ff5c1a]/10 rounded-full transition-colors"
+                    aria-label="Sign out"
+                    title="Kijelentkezés"
+                  >
+                    <FiLogOut className="w-8 h-8" />
+                  </motion.button>
+                  
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1.2, duration: 0.3, type: "spring", stiffness: 200 }}
+                    className="h-12 w-12 rounded-full bg-gradient-to-br from-[#ff5c1a] to-[#002b6b] flex items-center justify-center shadow-lg shadow-[#ff5c1a]/20"
+                  >
+                    <span className="font-bold text-lg text-white">{initial}</span>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
       )}
       {/* Main Content */}

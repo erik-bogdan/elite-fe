@@ -62,7 +62,7 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
   }, [maxRounds]);
 
   return (
-    <div className={`bg-black/30 rounded-2xl p-6 border-2 border-[#ff5c1a] flex flex-col gap-4 ${className}`}>
+    <div className={`bg-black/30 rounded-2xl p-3 sm:p-6 border-2 border-[#ff5c1a] flex flex-col gap-2 sm:gap-4 ${className}`}>
       
       {/* Summary Table (mobile: below, desktop: above) */}
       <div className="mb-2 md:mb-6 overflow-x-auto order-2 md:order-1">
@@ -70,49 +70,49 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
           <tbody>
             <tr>
 
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-2" style={{ width: '30%' }}>
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-1 sm:p-2" style={{ width: '30%' }}>
                 {teamStats.home.map((player, index) => (
-                  <div key={`home-${player.id || index}`} className="text-sm">{player.name}</div>
+                  <div key={`home-${player.id || index}`} className="text-xs sm:text-sm truncate">{player.name}</div>
                 ))}
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2" style={{ width: '12%' }}>
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2" style={{ width: '12%' }}>
                 {teamStats.home.map((player, index) => (
-                  <div key={`home-${player.id || index}`} className="text-sm">{player.percentage}%</div>
+                  <div key={`home-${player.id || index}`} className="text-xs sm:text-sm">{player.percentage}%</div>
                 ))}
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2" style={{ width: '12%' }}>
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2" style={{ width: '12%' }}>
                 {teamStats.home.map((player, index) => (
-                  <div key={`home-${player.id || index}`} className="text-sm">{player.hits}/{player.total}</div>
+                  <div key={`home-${player.id || index}`} className="text-xs sm:text-sm">{player.hits}/{player.total}</div>
                 ))}
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2" style={{ width: '12%' }}>
-                {teamStats.homeTotal.percentage}%
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2" style={{ width: '12%' }}>
+                <div className="text-xs sm:text-sm">{teamStats.homeTotal.percentage}%</div>
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2" style={{ width: '12%' }}>
-                {teamStats.starHome ? '★' : ''}{teamStats.homeTotal.hits}/{teamStats.homeTotal.total} ({teamStats.homeTotal.total - teamStats.homeTotal.hits})
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2" style={{ width: '12%' }}>
+                <div className="text-xs sm:text-sm">{teamStats.starHome ? '★' : ''}{teamStats.homeTotal.hits}/{teamStats.homeTotal.total} ({teamStats.homeTotal.total - teamStats.homeTotal.hits})</div>
               </td>
             </tr>
             <tr>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-2">
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-1 sm:p-2">
                 {teamStats.away.map((player, index) => (
-                  <div key={`away-${player.id || index}`} className="text-sm">{player.name}</div>
+                  <div key={`away-${player.id || index}`} className="text-xs sm:text-sm truncate">{player.name}</div>
                 ))}
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2">
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2">
                 {teamStats.away.map((player, index) => (
-                  <div key={`away-${player.id || index}`} className="text-sm">{player.percentage}%</div>
+                  <div key={`away-${player.id || index}`} className="text-xs sm:text-sm">{player.percentage}%</div>
                 ))}
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2">
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2">
                 {teamStats.away.map((player, index) => (
-                  <div key={`away-${player.id || index}`} className="text-sm">{player.hits}/{player.total}</div>
+                  <div key={`away-${player.id || index}`} className="text-xs sm:text-sm">{player.hits}/{player.total}</div>
                 ))}
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2">
-                {teamStats.awayTotal.percentage}%
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2">
+                <div className="text-xs sm:text-sm">{teamStats.awayTotal.percentage}%</div>
               </td>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-2">
-                {teamStats.starAway ? '★' : ''}{teamStats.awayTotal.hits}/{teamStats.awayTotal.total} ({teamStats.awayTotal.total - teamStats.awayTotal.hits})
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white text-center p-1 sm:p-2">
+                <div className="text-xs sm:text-sm">{teamStats.starAway ? '★' : ''}{teamStats.awayTotal.hits}/{teamStats.awayTotal.total} ({teamStats.awayTotal.total - teamStats.awayTotal.hits})</div>
               </td>
             </tr>
           </tbody>
@@ -125,9 +125,9 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
           <tbody>
             {/* Home Team Row */}
             <tr>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-2" style={{ width: '30%' }}>
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-1 sm:p-2" style={{ width: '30%' }}>
                 {teamStats.home.map((player, index) => (
-                  <div key={`home-${player.id || index}`} className="text-sm">{player.name}</div>
+                  <div key={`home-${player.id || index}`} className="text-xs sm:text-sm truncate">{player.name}</div>
                 ))}
               </td>
               {rounds.map((roundIndex) => {
@@ -193,9 +193,9 @@ const GameStatsGrid: React.FC<GameStatsGridProps> = ({
             
             {/* Away Team Row */}
             <tr>
-              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-2 border-b-2 border-black">
+              <td className="st-stats-header border border-gray-600 bg-gray-800 text-white p-1 sm:p-2 border-b-2 border-black">
                 {teamStats.away.map((player, index) => (
-                  <div key={`away-${player.id || index}`} className="text-sm">{player.name}</div>
+                  <div key={`away-${player.id || index}`} className="text-xs sm:text-sm truncate">{player.name}</div>
                 ))}
               </td>
               {rounds.map((roundIndex) => {

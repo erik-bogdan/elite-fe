@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { Bebas_Neue } from "next/font/google";
 import NeonBg from '../components/NeonBg';
-import { FiMenu, FiX, FiChevronDown, FiChevronRight, FiAward, FiUsers, FiUser, FiMoreHorizontal, FiChevronLeft } from 'react-icons/fi';
+import { FiMenu, FiX, FiChevronDown, FiChevronRight, FiAward, FiUsers, FiUser, FiMoreHorizontal, FiChevronLeft, FiLogOut } from 'react-icons/fi';
 import NotificationsDropdown from "../components/NotificationsDropdown";
 import { useSession } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { authClient } from '../lib/auth-client';
 
 const bebasNeue = Bebas_Neue({
     weight: "400",
@@ -128,6 +129,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }));
   };
 
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
   if (!session) {
     return <div>Loading...</div>;
   }
@@ -173,6 +183,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             {/* Right side icons */}
             <div className="hidden md:flex items-center space-x-4 lg:space-x-6">
               <NotificationsDropdown />
+              <button
+                onClick={handleSignOut}
+                className="p-2 text-white hover:text-[#ff5c1a] hover:bg-[#ff5c1a]/10 rounded-full transition-colors"
+                aria-label="Sign out"
+                title="Kijelentkezés"
+              >
+                <FiLogOut className="w-5 h-5" />
+              </button>
               <div className="h-9 w-9 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-[#ff5c1a] to-[#002b6b] flex items-center justify-center shadow-lg shadow-[#ff5c1a]/20">
                 <span className="font-bold text-base md:text-lg text-white">JD</span>
               </div>
