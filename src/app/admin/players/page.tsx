@@ -187,27 +187,28 @@ export default function PlayersPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {!(player as any).userId && (player as any).email && (
-                        (invited.has(String(player.id)) || (player as any).invitation?.pending) ? (
-                          <span className="px-3 py-1 rounded bg-green-600/80 text-white text-sm">Meghívva</span>
-                        ) : (
+                        <>
+                          {(invited.has(String(player.id)) || (player as any).invitation?.pending) && (
+                            <span className="px-3 py-1 rounded bg-green-600/80 text-white text-sm">Meghívva</span>
+                          )}
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
                               try {
                                 await sendInvite({ id: String(player.id) }).unwrap();
                                 setInvited(prev => new Set(prev).add(String(player.id)));
-                                toast.success("Meghívó elküldve");
+                                toast.success((invited.has(String(player.id)) || (player as any).invitation?.pending) ? "Meghívó újraküldve" : "Meghívó elküldve");
                               } catch {
                                 toast.error("Nem sikerült a meghívó küldése");
                               }
                             }}
                             className="flex items-center gap-1 px-3 py-1 rounded bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white text-sm"
                             disabled={inviteLoading}
-                            title="Meghívó küldése"
+                            title={(invited.has(String(player.id)) || (player as any).invitation?.pending) ? "Meghívó újraküldése" : "Meghívó küldése"}
                           >
-                            <FiMail className="w-4 h-4" /> Invite
+                            <FiMail className="w-4 h-4" /> {(invited.has(String(player.id)) || (player as any).invitation?.pending) ? 'Újraküldés' : 'Invite'}
                           </button>
-                        )
+                        </>
                       )}
                       <FiChevronRight className="w-5 h-5 text-[#ff5c1a]" />
                     </div>
