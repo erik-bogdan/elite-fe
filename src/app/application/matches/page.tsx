@@ -56,14 +56,40 @@ export default function MyMatchesPage() {
       const awayFirstPlayer = getPlayerName(match.awayFirstPlayerId, 'away');
       const awaySecondPlayer = getPlayerName(match.awaySecondPlayerId, 'away');
 
+      // Handle delayed matches
+      const isDelayed = match.isDelayed || false;
+      const originalDate = new Date(match.matchTime).toLocaleDateString('hu-HU', { timeZone: 'UTC' });
+      const originalTime = new Date(match.matchAt || match.matchTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+      const originalTable = match.matchTable;
+      const originalRound = match.matchRound;
+
+      // Use delayed data if available, otherwise original
+      const effectiveDate = isDelayed && match.delayedDate ? 
+        new Date(match.delayedDate).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) : 
+        originalDate;
+      const effectiveTime = isDelayed && match.delayedTime ? 
+        new Date(match.delayedTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : 
+        originalTime;
+      const effectiveTable = isDelayed && match.delayedTable ? match.delayedTable : originalTable;
+      const effectiveRound = isDelayed && match.delayedRound ? match.delayedRound : originalRound;
+
       console.log(match.matchTime);
       return {
         id: match.id,
-        date: new Date(match.matchTime).toLocaleDateString('hu-HU', { timeZone: 'UTC' }),
-        time: new Date(match.matchAt || match.matchTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
-        table: match.matchTable,
-        round: match.matchRound,
+        date: effectiveDate,
+        time: effectiveTime,
+        table: effectiveTable,
+        round: effectiveRound,
         gameDay: match.gameDay || 1,
+        isDelayed,
+        originalDate,
+        originalTime,
+        originalTable,
+        originalRound,
+        delayedDate: match.delayedDate,
+        delayedTime: match.delayedTime,
+        delayedTable: match.delayedTable,
+        delayedRound: match.delayedRound,
         homeTeam: {
           name: row.homeTeam?.name || 'Home Team',
           logo: row.homeTeam?.logo || '/elitelogo.png',
@@ -179,7 +205,15 @@ export default function MyMatchesPage() {
               {/* Matches Grid for this Game Day */}
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {gameDayGroup.matches.map((match) => (
-                  <div key={match.id} className="bg-black/40 backdrop-blur-sm rounded-2xl border border-[#ff5c1a]/30 p-6 hover:border-[#ff5c1a]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#ff5c1a]/20">
+                  <div key={match.id} className={`${match.isDelayed ? "bg-red-900/20" : "bg-black/40"} backdrop-blur-sm rounded-2xl border border-[#ff5c1a]/30 p-6 hover:border-[#ff5c1a]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#ff5c1a]/20 relative`}>
+                    {/* Delayed badge */}
+                    {match.isDelayed && (
+                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
+                        <div className="bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm font-bold transform -rotate-12">
+                          HALASZTVA
+                        </div>
+                      </div>
+                    )}
                     {/* Match Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
@@ -206,7 +240,7 @@ export default function MyMatchesPage() {
                             <h3 className="text-white font-semibold text-lg">{match.homeTeam.name}</h3>
                             <div className="flex items-center space-x-1 text-xs text-gray-400">
                               <FiUsers className="w-3 h-3" />
-                              <span>{match.homeTeam.players.join(' & ')}</span>
+                              <span>{match.homeTeam.players.filter((p: string) => p !== 'Unknown Player').length > 0 ? match.homeTeam.players.filter((p: string) => p !== 'Unknown Player').join(' & ') : 'Játékosok nincsenek megadva'}</span>
                             </div>
                           </div>
                         </div>
@@ -232,7 +266,7 @@ export default function MyMatchesPage() {
                             <h3 className="text-white font-semibold text-lg">{match.awayTeam.name}</h3>
                             <div className="flex items-center space-x-1 text-xs text-gray-400">
                               <FiUsers className="w-3 h-3" />
-                              <span>{match.awayTeam.players.join(' & ')}</span>
+                              <span>{match.awayTeam.players.filter((p: string) => p !== 'Unknown Player').length > 0 ? match.awayTeam.players.filter((p: string) => p !== 'Unknown Player').join(' & ') : 'Játékosok nincsenek megadva'}</span>
                             </div>
                           </div>
                         </div>
@@ -307,6 +341,41 @@ export default function MyMatchesPage() {
                             </div>
                           </div>
                         </div>
+
+                        {/* Delayed Match Details */}
+                        {match.isDelayed && (match.originalDate || match.originalTime || match.originalTable || match.originalRound) && (
+                          <div className="mb-4">
+                            <h4 className="text-white font-semibold mb-2">HALASZTÁS ELŐTTI ADATOK</h4>
+                            <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3">
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                {match.originalDate && (
+                                  <div>
+                                    <span className="text-gray-400">Eredeti dátum:</span>
+                                    <span className="text-white ml-2">{match.originalDate}</span>
+                                  </div>
+                                )}
+                                {match.originalTime && (
+                                  <div>
+                                    <span className="text-gray-400">Eredeti időpont:</span>
+                                    <span className="text-white ml-2">{match.originalTime}</span>
+                                  </div>
+                                )}
+                                {match.originalTable && (
+                                  <div>
+                                    <span className="text-gray-400">Eredeti asztal:</span>
+                                    <span className="text-white ml-2">#{match.originalTable}</span>
+                                  </div>
+                                )}
+                                {match.originalRound && (
+                                  <div>
+                                    <span className="text-gray-400">Eredeti forduló:</span>
+                                    <span className="text-white ml-2">{match.originalRound}.</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

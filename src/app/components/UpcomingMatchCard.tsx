@@ -16,7 +16,18 @@ interface UpcomingMatchCardProps {
   matchTitle: string;
   date: string;
   table: string;
+  round?: number;
   matchId?: string;
+  isDelayed?: boolean;
+  // Original data (before delay)
+  originalDate?: string;
+  originalTable?: string;
+  originalRound?: number;
+  // Delayed data
+  delayedDate?: string;
+  delayedTime?: string;
+  delayedRound?: number;
+  delayedTable?: number;
   teamA?: { name: string; logo?: string };
   teamB?: { name: string; logo?: string };
   onEnterResult?: () => void;
@@ -28,7 +39,16 @@ export default function UpcomingMatchCard({
   matchTitle,
   date,
   table,
+  round,
   matchId,
+  isDelayed,
+  originalDate,
+  originalTable,
+  originalRound,
+  delayedDate,
+  delayedTime,
+  delayedRound,
+  delayedTable,
   teamA,
   teamB,
   onEnterResult,
@@ -40,8 +60,16 @@ export default function UpcomingMatchCard({
 
   return (
     <div
-      className={`bg-black/40 border-2 border-[#ff5c1a] rounded-2xl shadow-lg shadow-[#ff5c1a33] mb-4 transition-all duration-300 ${open ? "pb-4" : "pb-0"}`}
+      className={`${isDelayed ? "bg-red-900/60" : "bg-black/40"} border-2 border-[#ff5c1a] rounded-2xl shadow-lg shadow-[#ff5c1a33] mb-4 transition-all duration-300 ${open ? "pb-4" : "pb-0"} ${isDelayed ? "relative" : ""}`}
     >
+      {/* Delayed badge */}
+      {isDelayed && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
+          <div className="bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm font-bold transform -rotate-12">
+            HALASZTVA
+          </div>
+        </div>
+      )}
       {/* Collapsed row */}
       <button
         className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 py-3 sm:py-4 gap-2 focus:outline-none text-left"
@@ -98,7 +126,36 @@ export default function UpcomingMatchCard({
             <div className="flex items-center gap-1">
               <FiMapPin className="inline-block text-[#ff5c1a]" /> Asztal: {table}
             </div>
+            {round && (
+              <div className="flex items-center gap-1">
+                <span className="text-[#ff5c1a]">Forduló:</span> {round}
+              </div>
+            )}
           </div>
+          {/* Original match information (before delay) */}
+          {isDelayed && (originalDate || originalTable || originalRound) && (
+            <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3 mt-2">
+              <div className="text-sm text-gray-300 mb-2 font-bold">Halasztás előtti adatok:</div>
+              <div className="flex flex-col gap-1 text-sm text-gray-200">
+                {originalDate && (
+                  <div className="flex items-center gap-1">
+                    <FiClock className="inline-block text-gray-400" />
+                    Eredeti időpont: {originalDate}
+                  </div>
+                )}
+                {originalTable && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400">Eredeti asztal:</span> {originalTable}
+                  </div>
+                )}
+                {originalRound && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-gray-400">Eredeti forduló:</span> {originalRound}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="px-6 pt-2 flex gap-3 flex-col md:flex-row">
           <button

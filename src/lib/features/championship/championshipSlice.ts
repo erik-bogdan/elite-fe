@@ -159,6 +159,17 @@ export const championshipApi = createApi({
       query: (id) => `/championship/${id}`,
       providesTags: ['Championship'],
     }),
+    getMatchesFiltered: builder.query<{ items: any[]; total: number; page: number; pageSize: number }, { seasonId?: string; leagueId?: string; round?: number; page?: number; pageSize?: number }>({
+      query: ({ seasonId, leagueId, round, page = 1, pageSize = 20 }) => {
+        const params = new URLSearchParams();
+        if (seasonId) params.set('seasonId', String(seasonId));
+        if (leagueId) params.set('leagueId', String(leagueId));
+        if (typeof round === 'number') params.set('round', String(round));
+        params.set('page', String(page));
+        params.set('pageSize', String(pageSize));
+        return `/matches?${params.toString()}`;
+      },
+    }),
     getLeagueTeams: builder.query<any[], string>({
       query: (leagueId) => `/championship/teams/${leagueId}`,
     }),

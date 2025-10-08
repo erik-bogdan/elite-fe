@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Bebas_Neue } from "next/font/google";
 import { FiX } from "react-icons/fi";
 
@@ -105,14 +106,27 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                  isValid &&
                  (cupsA === 10 || cupsB === 10 || cupsA > 10 || cupsB > 10);
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      {/* Overlay */}
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      {/* Modal */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto rounded-2xl bg-black/80 border-2 border-[#ff5c1a] shadow-2xl shadow-[#ff5c1a44] p-3 sm:p-4 md:p-8 flex flex-col animate-fade-in my-2 sm:my-4 max-h-[95vh] overflow-y-auto">
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          {/* Overlay */}
+          <motion.div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm" 
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          />
+          {/* Modal */}
+          <motion.div 
+            className="relative z-10 w-full max-w-4xl mx-auto rounded-2xl bg-black/80 border-2 border-[#ff5c1a] shadow-2xl shadow-[#ff5c1a44] p-3 sm:p-4 md:p-8 flex flex-col my-2 sm:my-4 max-h-[95vh] overflow-y-auto"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
         {/* Close button */}
         <button className="absolute top-2 right-2 md:top-4 md:right-4 text-white hover:text-[#ff5c1a] text-2xl" onClick={onClose}>
           <FiX />
@@ -284,7 +298,9 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
             Cancel
           </button>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 } 

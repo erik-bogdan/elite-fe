@@ -189,28 +189,62 @@ export default function ChampionshipView() {
   // Fetch real matches and group by match day (date)
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
-      const dateAt = row?.match?.matchDate || row?.match?.matchAt || null;
-      const timeAt = row?.match?.matchTime || row?.match?.matchAt || null;
-      if (!dateAt) return null;
+      const match = row.match;
+      const isDelayed = match.isDelayed || false;
+      
+      // Use original data for grouping and display
+      const originalDateSrc = match.matchAt || match.matchDate || null;
+      const originalTimeSrc = match.matchTime || match.matchAt || null;
+      const originalTableSrc = match.matchTable;
+      const originalRoundSrc = match.matchRound;
+      
+      if (!originalDateSrc) return null;
+      const originalDateIso = new Date(originalDateSrc).toISOString();
+      const originalTimeIso = originalTimeSrc ? new Date(originalTimeSrc).toISOString() : null;
+      
       return {
-        id: row.match.id,
-        date: dateAt,
-        time: timeAt,
-        table: row.match.matchTable,
-        round: row.match.matchRound,
-        home: row.homeTeam?.name || row.match.homeTeamId,
+        id: match.id,
+        date: originalDateIso, // Original date for grouping
+        time: originalTimeIso,
+        table: originalTableSrc,
+        round: originalRoundSrc,
+        isDelayed,
+        originalDateRaw: match.matchAt || match.matchDate,
+        originalTime: match.matchTime || match.matchAt,
+        originalTable: match.matchTable,
+        originalRound: match.matchRound,
+        delayedDate: match.delayedDate,
+        delayedTime: match.delayedTime,
+        delayedTable: match.delayedTable,
+        delayedRound: match.delayedRound,
+        home: row.homeTeam?.name || match.homeTeamId,
         homeLogo: abs(row.homeTeam?.logo) || '/elitelogo.png',
-        away: row.awayTeam?.name || row.match.awayTeamId,
+        away: row.awayTeam?.name || match.awayTeamId,
         awayLogo: abs(row.awayTeam?.logo) || '/elitelogo.png',
-        homeScore: row.match.homeTeamScore,
-        awayScore: row.match.awayTeamScore,
+        homeScore: match.homeTeamScore,
+        awayScore: match.awayTeamScore,
       };
     })
     .filter(Boolean)
     .reduce((acc: Record<string, any[]>, m: any) => {
+      // Group by original date to maintain gameday order
       const key = new Date(m.date).toISOString().slice(0,10);
       if (!acc[key]) acc[key] = [];
       acc[key].push(m);
+      
+      // If delayed, also add to delayed date group
+      if (m.isDelayed && m.delayedDate) {
+        const delayedKey = new Date(m.delayedDate).toISOString().slice(0,10);
+        if (!acc[delayedKey]) acc[delayedKey] = [];
+        acc[delayedKey].push({
+          ...m,
+          date: new Date(m.delayedDate).toISOString(),
+          time: m.delayedTime ? new Date(m.delayedTime).toISOString() : null,
+          table: m.delayedTable,
+          round: m.delayedRound,
+        });
+      }
+      
       return acc;
     }, {} as Record<string, any[]>);
   const matchDayList = Object.entries(matchDays)
@@ -225,6 +259,15 @@ export default function ChampionshipView() {
           time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}),
           tableNumber: m.table,
           round: m.round,
+          isDelayed: m.isDelayed,
+          originalDateRaw: m.originalDateRaw,
+          originalTime: m.originalTime,
+          originalTable: m.originalTable,
+          originalRound: m.originalRound,
+          delayedDate: m.delayedDate,
+          delayedTime: m.delayedTime,
+          delayedTable: m.delayedTable,
+          delayedRound: m.delayedRound,
           homeTeam: { name: m.home, logo: m.homeLogo },
           awayTeam: { name: m.away, logo: m.awayLogo },
           homeScore: m.homeScore,
@@ -745,7 +788,12 @@ export default function ChampionshipView() {
                                   const isOT = Math.max(Number(match.homeScore||0), Number(match.awayScore||0)) > 10 && Math.min(Number(match.homeScore||0), Number(match.awayScore||0)) >= 10;
                                   const keyId = String(match.id);
                                   return (
-                                    <motion.div key={keyId} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="bg-black/30 rounded-lg p-4">
+                                    <motion.div key={keyId} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className={`${match.isDelayed ? (match.round === match.originalRound ? "bg-red-900/20" : "bg-yellow-900/20 border-1 border-yellow-400") : "bg-black/30"} rounded-lg p-4 relative`}>
+                                      {match.isDelayed && (
+                                        <div className="bg-gray-800/90 text-white px-2 py-1 rounded text-xs font-bold">
+                                          {match.round === match.originalRound ? 'HALASZTVA' : 'HALASZTOTT MECCS LEJÁTSZÁSA'}
+                                        </div>
+                                      )}
                                       <button onClick={() => toggleMatch(keyId)} className="w-full flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2">
@@ -760,8 +808,15 @@ export default function ChampionshipView() {
                                           <span className="text-[#ff5c1a]">{typeof match.homeScore === 'number' && typeof match.awayScore === 'number' ? `(${match.homeScore} - ${match.awayScore}${isOT ? ' OT' : ''})` : ''}</span>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-[#e0e6f7]">{match.time}</span>
-                                          <span className="text-[#e0e6f7]">Asztal: {match.tableNumber}</span>
+                          <span className="text-[#e0e6f7]">
+                            {match.isDelayed && match.delayedTime ? 
+                              new Date(match.delayedTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : 
+                              match.time
+                            }
+                          </span>
+                          <span className="text-[#e0e6f7]">
+                            Asztal: {match.isDelayed && match.delayedTable ? match.delayedTable : match.tableNumber}
+                          </span>
                                           {expandedMatches.includes(keyId) ? (<FiChevronUp className="w-5 h-5 text-[#ff5c1a]" />) : (<FiChevronDown className="w-5 h-5 text-[#ff5c1a]" />)}
                         </div>
                       </button>
@@ -773,17 +828,43 @@ export default function ChampionshipView() {
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3 }}
-                            className="mt-4 flex gap-4"
+                            className="mt-4 flex flex-col gap-4"
                           >
-                                            <button
-                                              onClick={() => setResultModal({ open: true, match })}
-                                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors"
-                                            >
-                                              <FiEdit2 className="w-4 h-4" /> Eredmény módosítása
-                            </button>
-                            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors">
-                                              <FiCalendar className="w-4 h-4" /> Meccs halasztása
-                            </button>
+                            {/* Delayed Match Details */}
+                            {match.isDelayed && (match.delayedDate || match.delayedTime || match.delayedTable || match.delayedRound) && match.round === match.originalRound && (
+                              <div className="mb-4">
+                                <h4 className="text-white font-semibold mb-2">HALASZTVA ERRE:</h4>
+                                <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3">
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    {match.delayedDate && (
+                                      <div>
+                                        <span className="text-gray-400">Új dátum:</span>
+                                        <span className="text-white ml-2">{new Date(match.delayedDate).toLocaleDateString('hu-HU', { timeZone: 'UTC' })}</span>
+                                      </div>
+                                    )}
+                                    {match.delayedTime && (
+                                      <div>
+                                        <span className="text-gray-400">Új időpont:</span>
+                                        <span className="text-white ml-2">{new Date(match.delayedTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}</span>
+                                      </div>
+                                    )}
+                                    {match.delayedTable && (
+                                      <div>
+                                        <span className="text-gray-400">Új asztal:</span>
+                                        <span className="text-white ml-2">{match.delayedTable}</span>
+                                      </div>
+                                    )}
+                                    {match.delayedRound && (
+                                      <div>
+                                        <span className="text-gray-400">Új forduló:</span>
+                                        <span className="text-white ml-2">{match.delayedRound}.</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            
                           </motion.div>
                         )}
                       </AnimatePresence>

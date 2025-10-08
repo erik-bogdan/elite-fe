@@ -93,6 +93,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: <FiAward className="w-5 h-5" />,
       items: [
         { title: "Összes Bajnokság", href: "/admin/championships" },
+        { title: "Meccsek", href: "/admin/matches" },
       ],
     },
     {

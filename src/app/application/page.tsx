@@ -24,6 +24,21 @@ const parseMatchDate = (row: any): Date | null => {
   try { return new Date(at); } catch { return null; }
 };
 
+// helper to parse delayed date from backend fields
+const parseDelayedDate = (row: any): Date | null => {
+  const at = row?.match?.delayedTime || null;
+  if (!at) return null;
+  try { return new Date(at); } catch { return null; }
+};
+
+// helper to get effective date (delayed if available, otherwise original)
+const getEffectiveDate = (row: any): Date | null => {
+  if (row?.match?.isDelayed && row?.match?.delayedTime) {
+    return parseDelayedDate(row);
+  }
+  return parseMatchDate(row);
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [checkingInvite, setCheckingInvite] = useState(true);
@@ -59,12 +74,24 @@ export default function DashboardPage() {
   const mySortedMatches = useMemo(() => {
     const all = Array.isArray(leagueMatches) ? leagueMatches : [];
     const mine = all.filter((row: any) => row?.match && (row.match.homeTeamId === myTeamId || row.match.awayTeamId === myTeamId) && row.match.matchStatus !== 'completed');
+    
+    // Debug: log match data to see if delayed fields are present
+    if (mine.length > 0) {
+      console.log('Match data sample:', JSON.stringify(mine[0], null, 2));
+    }
+    
     return mine
       .map((row: any) => ({
         row,
-        when: parseMatchDate(row),
+        when: getEffectiveDate(row),
+        originalWhen: parseMatchDate(row),
+        delayedWhen: parseDelayedDate(row),
         title: `${row.homeTeam?.name || row.match.homeTeamId} vs ${row.awayTeam?.name || row.match.awayTeamId}`,
-        table: row.match.matchTable,
+        table: row.match.isDelayed ? row.match.delayedTable : row.match.matchTable,
+        round: row.match.isDelayed ? row.match.delayedRound : row.match.matchRound,
+        isDelayed: row.match.isDelayed,
+        delayedDate: row.match.delayedDate,
+        delayedTime: row.match.delayedTime,
       }))
       .sort((a: any, b: any) => (a.when?.getTime?.() || 0) - (b.when?.getTime?.() || 0));
   }, [leagueMatches, myTeamId]);
@@ -78,9 +105,21 @@ export default function DashboardPage() {
 
   const upcomingFive = upcoming.slice(0, 5).map((m) => ({
     matchTitle: m.title,
-    date: m.when ? m.when.toLocaleString('hu-HU', {  }) : '',
+    // Show delayed time if available, otherwise original time
+    date: m.when ? m.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '',
     table: String(m.table || ''),
+    round: m.round,
     matchId: m.row.match?.id || m.row.id,
+    isDelayed: m.isDelayed,
+    // Original data for the "before delay" section
+    originalDate: m.originalWhen ? m.originalWhen.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '',
+    originalTable: String(m.row.match?.matchTable || ''),
+    originalRound: m.row.match?.matchRound,
+    // Delayed data (now used for main display)
+    delayedDate: m.delayedDate,
+    delayedTime: m.delayedTime,
+    delayedRound: m.row.match?.delayedRound,
+    delayedTable: m.row.match?.delayedTable,
     teamA: { 
       name: m.row.homeTeam?.name || '', 
       logo: m.row.homeTeam?.logo ? (m.row.homeTeam.logo.startsWith('http') ? m.row.homeTeam.logo : `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}${m.row.homeTeam.logo}`) : '/elitelogo.png'
@@ -90,6 +129,7 @@ export default function DashboardPage() {
       logo: m.row.awayTeam?.logo ? (m.row.awayTeam.logo.startsWith('http') ? m.row.awayTeam.logo : `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}${m.row.awayTeam.logo}`) : '/elitelogo.png'
     },
   }));
+  console.log(upcomingFive);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTeams, setModalTeams] = useState<{ teamA: any; teamB: any } | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<any>(null);
@@ -252,9 +292,18 @@ export default function DashboardPage() {
                 <UpcomingMatchCard
                   key={idx}
                   matchTitle={match.matchTitle}
-                  date={new Date(match.date).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) + ' ' + new Date(match.date).toLocaleTimeString('hu-HU', { timeZone: 'UTC' })}
+                  date={new Date(match.date).toLocaleDateString('hu-HU') + ' ' + new Date(match.date).toLocaleTimeString('hu-HU')}
                   table={match.table}
+                  round={match.round}
                   matchId={match.matchId}
+                  isDelayed={match.isDelayed}
+                  originalDate={match.originalDate}
+                  originalTable={match.originalTable}
+                  originalRound={match.originalRound}
+                  delayedDate={match.delayedDate}
+                  delayedTime={'match.delayedTime'}
+                  delayedRound={match.delayedRound}
+                  delayedTable={match.delayedTable}
                   teamA={match.teamA}
                   teamB={match.teamB}
                   onEnterResult={() => handleEnterResult(upcoming[idx].row)}
