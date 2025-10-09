@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bebas_Neue } from "next/font/google";
 import { motion } from "framer-motion";
-import { FiPlus, FiSearch, FiUsers, FiUserPlus, FiEdit2, FiLink, FiLink2, FiKey, FiMoreVertical } from "react-icons/fi";
+import { FiPlus, FiSearch, FiUsers, FiUserPlus, FiEdit2, FiLink, FiLink2, FiKey, FiMoreVertical, FiUserCheck } from "react-icons/fi";
 import Link from "next/link";
 import { useSearchPlayersQuery } from "@/lib/features/apiSlice";
 import {
@@ -15,6 +15,7 @@ import {
   useAdminSetPasswordMutation,
   useAdminSendSetPasswordLinkMutation,
 } from "@/lib/features/apiSlice";
+import { authClient } from "@/app/lib/auth-client";
 
 const bebasNeue = Bebas_Neue({ weight: "400", subsets: ["latin"] });
 
@@ -161,6 +162,20 @@ export default function AdminUsersPage() {
             style={{ top: menuState.y, left: menuState.x }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              onClick={async () => {
+                const u = menuState.user as any;
+                try {
+                  await (authClient as any).admin?.impersonateUser?.({ userId: u.id });
+                } catch {
+                  try { await (authClient as any).admin?.impersonate?.({ userId: u.id }); } catch {}
+                }
+                window.location.href = "/application";
+              }}
+              className="w-full text-left px-4 py-2 hover:bg-white/10 text-white flex items-center gap-2"
+            >
+              <FiUserCheck /> Impersonálás
+            </button>
             <button onClick={() => { const u = menuState.user; setEditingUser(u); setEditForm({ name: u.name || '', nickname: u.nickname || '', role: u.role || 'user' }); setIsEditOpen(true); setMenuState({ open: false, user: null, x: 0, y: 0 }); }} className="w-full text-left px-4 py-2 hover:bg-white/10 text-white flex items-center gap-2"><FiEdit2 /> Szerkesztés</button>
             <button onClick={() => { const u = menuState.user; setEditingUser(u); setPwdOpen(true); setPwdForm({ newPassword: '' }); setMenuState({ open: false, user: null, x: 0, y: 0 }); }} className="w-full text-left px-4 py-2 hover:bg-white/10 text-white flex items-center gap-2"><FiKey /> Jelszó módosítás</button>
             {menuState.user.playerId ? (

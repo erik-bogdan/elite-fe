@@ -12,6 +12,7 @@ import { authClient } from "../lib/auth-client";
 import { useSession } from '@/hooks/useAuth';
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { FiXCircle } from 'react-icons/fi';
 
 const bebasNeue = Bebas_Neue({
     weight: "400",
@@ -30,6 +31,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const isApply = pathname?.startsWith('/application/apply');
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const [isImpersonating, setIsImpersonating] = useState<{ adminName?: string; targetName?: string } | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -51,6 +53,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [isPending, session, router]);
 
+  useEffect(() => {
+    const impersonatedBy = (session as any)?.session?.impersonatedBy || (session as any)?.impersonatedBy;
+    if (impersonatedBy) {
+      const adminName = (impersonatedBy.user?.name || impersonatedBy.user?.email || 'Admin');
+      const targetName = (session as any)?.user?.name || (session as any)?.user?.email || 'User';
+      setIsImpersonating({ adminName, targetName });
+    } else {
+      setIsImpersonating(null);
+    }
+  }, [session]);
+
   const initial = (nickname || "").trim().charAt(0).toUpperCase() || "?";
 
   const handleSignOut = async () => {
@@ -65,12 +78,40 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen w-full flex flex-col relative">
       <NeonBg />
+      {isImpersonating && (
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-[#ff5c1a] text-white">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+            <div className="flex items-center justify-between h-10">
+              <div className="text-sm">
+                Impersonate aktív: <span className="font-semibold">{isImpersonating.targetName}</span> néven
+              </div>
+              <button
+                onClick={async () => {
+                  try {
+                    await (authClient as any).admin?.stopImpersonating?.();
+                  } catch {
+                    try { await (authClient as any).admin?.revert?.(); } catch {}
+                  }
+                  window.location.reload();
+                }}
+                className="flex items-center gap-1 hover:opacity-90"
+                aria-label="Kilépés az impersonate-ből"
+                title="Kilépés"
+              >
+                <FiXCircle className="w-4 h-4" />
+                <span>Kilépés</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top Navigation - hidden on /application/apply */}
       {!isApply && (
       <motion.div 
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         className="fixed top-0 left-0 right-0 z-50 bg-[#002b6b]/95 backdrop-blur-md shadow-md border-b border-[#ff5c1a]"
+        style={{ top: isImpersonating ? 40 : 0 }}
       >
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex items-center justify-between h-16 md:h-20">
