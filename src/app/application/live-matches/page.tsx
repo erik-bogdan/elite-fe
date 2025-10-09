@@ -238,13 +238,11 @@ export default function LiveMatchesPage() {
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div className="text-center">
                     <div className="text-gray-400">Dobások</div>
-                    <div className="text-white font-semibold">{match.trackingData.gameHistory.length}</div>
+                    <div className="text-white font-semibold">{match.totalThrows}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-gray-400">Hits</div>
-                    <div className="text-white font-semibold">
-                      {match.trackingData.gameHistory.filter((action: any) => action.type === 'hit').length}
-                    </div>
+                    <div className="text-white font-semibold">{match.hitsHome + match.hitsAway}</div>
                   </div>
                 </div>
               </div>

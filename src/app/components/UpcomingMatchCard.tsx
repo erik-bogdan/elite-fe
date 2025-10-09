@@ -14,6 +14,7 @@ const bebasNeue = Bebas_Neue({
 
 interface UpcomingMatchCardProps {
   matchTitle: string;
+  id?: string;
   date: string;
   table: string;
   round?: number;
@@ -37,6 +38,7 @@ interface UpcomingMatchCardProps {
 
 export default function UpcomingMatchCard({
   matchTitle,
+  id,
   date,
   table,
   round,

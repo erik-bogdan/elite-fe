@@ -137,7 +137,7 @@ export default function DashboardPage() {
   
   // Match meta for modal
   const modalMatchId = selectedMatch ? String(selectedMatch.id || selectedMatch.match?.id || '') : '';
-  const { data: matchMeta, refetch: refetchMeta } = useGetMatchMetaQuery(modalMatchId, { skip: !modalMatchId });
+  const { data: matchMeta, refetch: refetchMeta, isFetching: isFetchingMatchMeta } = useGetMatchMetaQuery(modalMatchId, { skip: !modalMatchId });
   const [updateMatchResult] = useUpdateMatchResultMutation();
 
   useEffect(() => {
@@ -241,7 +241,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Enter Result Modal */}
-      {modalOpen && matchMeta && (
+      {modalOpen && isFetchingMatchMeta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="h-10 w-10 rounded-full border-4 border-[#ff5c1a] border-t-transparent animate-spin" />
+        </div>
+      )}
+      {modalOpen && !isFetchingMatchMeta && matchMeta && (
         <EnterResultModal
           open={true}
           onClose={() => setModalOpen(false)}
@@ -291,6 +296,7 @@ export default function DashboardPage() {
               {upcomingFive.length > 0 ? upcomingFive.map((match, idx) => (
                 <UpcomingMatchCard
                   key={idx}
+                  id={match.matchId}
                   matchTitle={match.matchTitle}
                   date={new Date(match.date).toLocaleDateString('hu-HU') + ' ' + new Date(match.date).toLocaleTimeString('hu-HU')}
                   table={match.table}

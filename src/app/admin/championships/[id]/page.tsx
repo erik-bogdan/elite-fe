@@ -137,7 +137,7 @@ export default function ChampionshipView() {
   const modalAwayTeamId = resultModal.open ? (resultModal.match?.awayTeam?.id || resultModal.match?.awayTeamId) : null;
   const modalSeasonId = championship?.seasonId ? String(championship.seasonId as any) : '';
   const modalMatchId = resultModal.open ? String(resultModal.match?.id || resultModal.match?.match?.id || '') : '';
-  const { data: matchMeta, refetch: refetchMeta } = useGetMatchMetaQuery(modalMatchId, { skip: !modalMatchId });
+  const { data: matchMeta, refetch: refetchMeta, isFetching: isFetchingMatchMeta } = useGetMatchMetaQuery(modalMatchId, { skip: !modalMatchId });
   const [updateMatchResult] = useUpdateMatchResultMutation();
 
   useEffect(() => {
@@ -683,7 +683,12 @@ export default function ChampionshipView() {
       />
 
 
-      {resultModal.open && championship && matchMeta && (
+      {resultModal.open && isFetchingMatchMeta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="h-10 w-10 rounded-full border-4 border-[#ff5c1a] border-t-transparent animate-spin" />
+        </div>
+      )}
+      {resultModal.open && championship && !isFetchingMatchMeta && matchMeta && (
         <EnterResultModal
           open={true}
           onClose={() => setResultModal({ open: false })}
