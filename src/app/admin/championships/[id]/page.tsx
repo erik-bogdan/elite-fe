@@ -129,6 +129,12 @@ export default function ChampionshipView() {
   const [isTeamModalOpen, setTeamModalOpen] = useState(false);
   const [isStartModalOpen, setStartModalOpen] = useState(false);
   const [isScriptModalOpen, setScriptModalOpen] = useState(false);
+  const [isExportImageOpen, setExportImageOpen] = useState(false);
+  const [exportGameday, setExportGameday] = useState<number | 'latest'>("latest" as any);
+  const [playersForExport, setPlayersForExport] = useState<Array<{ id: string; label: string }>>([]);
+  const [mvpPlayerId, setMvpPlayerId] = useState<string>('');
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [activeRow, setActiveRow] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
   const [resultModal, setResultModal] = useState<{ open: boolean; match?: any }>(() => ({ open: false }));
@@ -143,8 +149,32 @@ export default function ChampionshipView() {
   useEffect(() => {
     if (!championshipId) {
       router.push('/admin/championships');
+      return;
     }
   }, [championshipId, router]);
+
+  useEffect(() => {
+    // Load players for MVP select when modal opens or league teams change
+    (async () => {
+      try {
+        if (!isExportImageOpen) return;
+        const seasonId = championship?.seasonId as any;
+        const teams = attachedTeams || [];
+        if (!seasonId || teams.length === 0) return;
+        const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}`;
+        const results = await Promise.all(teams.map(async (t: any) => {
+          try {
+            const res = await fetch(`${backend}/api/teams/${t.id}/players?seasonId=${encodeURIComponent(String(seasonId))}`, { credentials: 'include' });
+            if (!res.ok) return [] as any[];
+            const rows = await res.json();
+            return (rows || []).map((p: any) => ({ id: String(p.id), label: `${(p.lastName || '') + ' ' + (p.firstName || '') || p.nickname || ''} (${t.name})` }));
+          } catch { return [] as any[]; }
+        }));
+        const list = results.flat().filter(Boolean) as Array<{ id: string; label: string }>;
+        setPlayersForExport(list);
+      } catch {}
+    })();
+  }, [isExportImageOpen, attachedTeams, championship]);
 
   const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
   const abs = (p?: string | null) => p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '';
@@ -355,7 +385,28 @@ export default function ChampionshipView() {
             <FiTable className="w-5 h-5" /> Bajnokság indítása
         </button>
         )}
-        <button className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors">
+        <button
+          onClick={async () => {
+            try {
+              const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}`;
+              const url = `${backend}/api/championship/${championshipId}/export/xlsx`;
+              const res = await fetch(url, { credentials: 'include' });
+              if (!res.ok) throw new Error('Export sikertelen');
+              const blob = await res.blob();
+              const a = document.createElement('a');
+              a.href = window.URL.createObjectURL(blob);
+              const name = `${(championship?.name || 'championship').replace(/[^\w\s\-_.]/g, '')}.xlsx`;
+              a.download = name;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            } catch (e) {
+              console.error(e);
+              toast.error('Nem sikerült az export');
+            }
+          }}
+          className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors"
+        >
           <FiDownload className="w-5 h-5" /> Export Championship
         </button>
         <button 
@@ -363,6 +414,12 @@ export default function ChampionshipView() {
           className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors"
         >
           <FiTable className="w-5 h-5" /> Script Generálás
+        </button>
+        <button
+          onClick={() => setExportImageOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#ff5c1a] text-white hover:bg-[#ff7c3a] transition-colors"
+        >
+          <FiDownload className="w-5 h-5" /> Gameday Tabella Kép
         </button>
       </div>
 
@@ -681,6 +738,115 @@ export default function ChampionshipView() {
         leagueMatches={leagueMatches || []}
         championship={championship}
       />
+
+      {/* Export Image Modal */}
+      {isExportImageOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60" onClick={()=>{
+            setExportImageOpen(false);
+            if (previewImageUrl) {
+              window.URL.revokeObjectURL(previewImageUrl);
+              setPreviewImageUrl(null);
+            }
+          }} />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0b1221] border-2 border-[#ff5c1a] rounded-xl p-6 w-[90vw] max-w-md">
+            <div className={`${bebasNeue.className} text-2xl text-white mb-4`}>Gameday Tabella Kép</div>
+            <div className="space-y-4">
+              <label className="block text-white/80">Válassz játéknapot</label>
+              <select
+                value={String(exportGameday)}
+                onChange={(e) => setExportGameday(e.target.value === 'latest' ? 'latest' as any : Number(e.target.value))}
+                className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white"
+              >
+                <option value="latest">Legutóbbi játéknap</option>
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b).map((g:number)=> (
+                  <option key={`ex-gd-${g}`} value={g}>{g}. játéknap</option>
+                ))}
+              </select>
+              <div className="pt-2">
+                <label className="block text-white/80 mb-1">Gameday MVP játékos</label>
+                <select
+                  value={mvpPlayerId}
+                  onChange={(e)=>setMvpPlayerId(e.target.value)}
+                  className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white"
+                >
+                  <option value="">(nincs kiválasztva)</option>
+                  <option value="no-player">Még nincs játékos</option>
+                  {playersForExport.map(p => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-white/50 mt-1">Lista a bajnokság csapatainak játékosaiból</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async ()=>{
+                    try {
+                      setIsGeneratingImage(true);
+                      const days = Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b);
+                      const gd = exportGameday === 'latest' ? (days[days.length-1] || 1) : exportGameday;
+                      const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}`;
+                      const params = new URLSearchParams();
+                      if (mvpPlayerId) params.set('mvpPlayerId', mvpPlayerId);
+                      const url = `${backend}/api/championship/${championshipId}/standings/gameday/${gd}/image${params.toString() ? `?${params.toString()}` : ''}`;
+                      const res = await fetch(url, { credentials: 'include' });
+                      if (!res.ok) throw new Error('Kép generálás sikertelen');
+                      const blob = await res.blob();
+                      const previewUrl = window.URL.createObjectURL(blob);
+                      setPreviewImageUrl(previewUrl);
+                    } catch (e) { console.error(e); toast.error('Nem sikerült a kép generálása'); }
+                    finally { setIsGeneratingImage(false); }
+                  }}
+                  disabled={isGeneratingImage}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded px-4 py-2 flex items-center justify-center gap-2"
+                >
+                  {isGeneratingImage ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Generálás...
+                    </>
+                  ) : (
+                    'Előnézet'
+                  )}
+                </button>
+                <button
+                  onClick={async ()=>{
+                    try {
+                      if (!previewImageUrl) {
+                        toast.error('Először generálj előnézetet!');
+                        return;
+                      }
+                      const days = Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b);
+                      const gd = exportGameday === 'latest' ? (days[days.length-1] || 1) : exportGameday;
+                      const a = document.createElement('a');
+                      a.href = previewImageUrl;
+                      a.download = `${(championship?.name || 'gameday')}_GD${gd}.png`;
+                      document.body.appendChild(a); a.click(); a.remove();
+                      setExportImageOpen(false);
+                    } catch (e) { console.error(e); toast.error('Nem sikerült a letöltés'); }
+                  }}
+                  disabled={!previewImageUrl}
+                  className="flex-1 bg-[#ff5c1a] hover:bg-[#ff7c3a] disabled:bg-gray-600 disabled:opacity-50 text-white rounded px-4 py-2"
+                >
+                  Letöltés PNG
+                </button>
+              </div>
+              {previewImageUrl && (
+                <div className="mt-4">
+                  <label className="block text-white/80 mb-2">Előnézet:</label>
+                  <div className="border border-white/20 rounded-lg overflow-hidden">
+                    <img 
+                      src={previewImageUrl} 
+                      alt="Gameday tabella előnézet" 
+                      className="w-full h-auto max-h-96 object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {resultModal.open && isFetchingMatchMeta && (

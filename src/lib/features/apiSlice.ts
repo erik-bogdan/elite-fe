@@ -216,6 +216,18 @@ export const apiSlice = createApi({
       }),
       invalidatesTags: (result, error, { id }) => [{ type: 'Player', id }, 'Player'],
     }),
+    uploadPlayerImage: builder.mutation<Player, { id: string; file: File }>({
+      query: ({ id, file }) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return {
+          url: `/players/${id}/image`,
+          method: 'POST',
+          body: formData,
+        } as any;
+      },
+      invalidatesTags: (result, error, { id }) => [{ type: 'Player', id }, 'Player'],
+    }),
     sendPlayerInvite: builder.mutation<{ success: boolean }, { id: string }>({
       query: ({ id }) => ({
         url: `/players/${id}/invite`,
@@ -301,6 +313,7 @@ export const {
   useConfirmApplyMutation,
   useRenameApplyMutation,
   useGetMyLeagueQuery,
+  useUploadPlayerImageMutation,
   useUploadTeamLogoMutation,
   useGetActiveInviteQuery,
   useCheckPlayerEmailQuery,

@@ -8,7 +8,7 @@ import { FiArrowLeft, FiEdit2, FiAward } from "react-icons/fi";
 import Link from "next/link";
 import { useState } from "react";
 import EditPlayerModal from "../components/EditPlayerModal";
-import { useGetPlayerByIdQuery } from "@/lib/features/apiSlice";
+import { useGetPlayerByIdQuery, useUploadPlayerImageMutation } from "@/lib/features/apiSlice";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -39,6 +39,7 @@ export default function PlayerDetailsPage() {
   const playerId = String(params.id);
   const { data: player } = useGetPlayerByIdQuery(playerId, { skip: !playerId });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [uploadImage, { isLoading: uploading }] = useUploadPlayerImageMutation();
 
   const onCloseEdit = () => setIsEditModalOpen(false);
 
@@ -82,6 +83,25 @@ export default function PlayerDetailsPage() {
                 className="object-cover w-full h-full"
               />
             </div>
+            <label className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-black/40 border border-white/20 rounded text-white cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    await uploadImage({ id: playerId, file }).unwrap();
+                    window.location.reload();
+                  } catch (err) {
+                    console.error(err);
+                    alert('Kép feltöltése nem sikerült');
+                  }
+                }}
+              />
+              {uploading ? 'Feltöltés...' : 'Kép feltöltése'}
+            </label>
             <button 
               onClick={() => setIsEditModalOpen(true)}
               className="mt-4 flex items-center gap-2 px-4 py-2 bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white rounded-lg transition-colors"
@@ -95,7 +115,7 @@ export default function PlayerDetailsPage() {
           <div className="space-y-6">
             <div>
               <h1 className={`${bebasNeue.className} text-4xl text-white mb-2`}>
-                {player.firstName ?? ''} {player.lastName ?? ''}
+                {player.lastName ?? ''} {player.firstName ?? ''}
               </h1>
               <p className="text-2xl text-[#ff5c1a] font-bold">{player.nickname}</p>
             </div>

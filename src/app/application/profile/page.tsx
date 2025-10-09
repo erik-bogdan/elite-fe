@@ -190,51 +190,6 @@ export default function ProfilePage() {
               <button onClick={() => setShowEdit(false)} className="text-white/80 hover:text-white text-xl">×</button>
             </div>
             <div className="space-y-6">
-              {/* Image Upload Section */}
-              <div className="space-y-3">
-                <label className="text-white text-sm font-medium block">Profilkép módosítása</label>
-                <div className="relative">
-                  <div className="border-2 border-dashed border-[#ff5c1a]/50 rounded-lg p-6 text-center hover:border-[#ff5c1a] transition-colors">
-                    <div className="flex flex-col items-center space-y-2">
-                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#ff5c1a]/30">
-                        <Image src={avatar || '/elitelogo.png'} alt="avatar" width={64} height={64} className="object-cover w-full h-full" />
-                      </div>
-                      <div className="text-white/70 text-sm">Kattints a kép kiválasztásához</div>
-                    </div>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = async () => {
-                          const dataUrl = reader.result as string;
-                          const resp = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_HOST || 'http://localhost:3555'}/api/user/profile/avatar`, {
-                            method: 'PUT', 
-                            headers: { 'Content-Type': 'application/json' }, 
-                            credentials: 'include', 
-                            body: JSON.stringify({ image: dataUrl })
-                          });
-                          if (resp.ok) {
-                            const result = await resp.json();
-                            // Use the backend returned full URL
-                            if (result.player?.image) {
-                              setAvatar(result.player.image);
-                            } else {
-                              setAvatar(dataUrl); // Fallback to DataURL
-                            }
-                            toast.success('Avatar frissítve');
-                          } else toast.error('Avatar frissítés sikertelen');
-                        };
-                        reader.readAsDataURL(file);
-                      }} 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Password Change Section */}
               <div className="space-y-4">
                 <h4 className="text-white font-medium text-sm">Jelszó módosítása</h4>

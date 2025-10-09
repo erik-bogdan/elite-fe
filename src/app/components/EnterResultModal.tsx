@@ -295,7 +295,7 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
             className="bg-white/10 hover:bg-white/20 text-white font-bold px-6 md:px-12 py-3 md:py-3 rounded-xl shadow-md transition text-sm sm:text-base md:text-xl w-full sm:w-auto"
             onClick={onClose}
           >
-            Cancel
+            Mégse
           </button>
         </div>
           </motion.div>
