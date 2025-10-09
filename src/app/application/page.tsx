@@ -103,16 +103,24 @@ export default function DashboardPage() {
   const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '';
   const nextMatchTable = nextMatch?.row?.match?.matchTable ? String(nextMatch.row.match.matchTable) : '';
 
+  const formatDateForDisplay = (d: Date | null) => {
+    if (!d || Number.isNaN(d.getTime())) return '';
+    // Always render in UTC to match backend schedule and avoid device TZ drift
+    const dateStr = d.toLocaleDateString('hu-HU', { timeZone: 'UTC' });
+    const timeStr = d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' });
+    return `${dateStr} ${timeStr}`;
+  };
+
   const upcomingFive = upcoming.slice(0, 5).map((m) => ({
     matchTitle: m.title,
     // Show delayed time if available, otherwise original time
-    date: m.when ? m.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '',
+    date: formatDateForDisplay(m.when),
     table: String(m.table || ''),
     round: m.round,
     matchId: m.row.match?.id || m.row.id,
     isDelayed: m.isDelayed,
     // Original data for the "before delay" section
-    originalDate: m.originalWhen ? m.originalWhen.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '',
+    originalDate: formatDateForDisplay(m.originalWhen),
     originalTable: String(m.row.match?.matchTable || ''),
     originalRound: m.row.match?.matchRound,
     // Delayed data (now used for main display)
@@ -298,7 +306,7 @@ export default function DashboardPage() {
                   key={idx}
                   id={match.matchId}
                   matchTitle={match.matchTitle}
-                  date={new Date(match.date).toLocaleDateString('hu-HU') + ' ' + new Date(match.date).toLocaleTimeString('hu-HU')}
+                  date={match.date}
                   table={match.table}
                   round={match.round}
                   matchId={match.matchId}
@@ -307,7 +315,7 @@ export default function DashboardPage() {
                   originalTable={match.originalTable}
                   originalRound={match.originalRound}
                   delayedDate={match.delayedDate}
-                  delayedTime={'match.delayedTime'}
+                  delayedTime={match.delayedTime}
                   delayedRound={match.delayedRound}
                   delayedTable={match.delayedTable}
                   teamA={match.teamA}
