@@ -269,6 +269,10 @@ export const championshipApi = createApi({
       query: ({ id, round }) => `/championship/${id}/standings/upto-round/${round}`,
       providesTags: ['Championship']
     }),
+    getStandingsByGameDay: builder.query<{ standings: any[] }, { id: string; gameDay: number }>({
+      query: ({ id, gameDay }) => `/championship/${id}/standings/gameday/${gameDay}`,
+      providesTags: ['Championship']
+    }),
     getGameDayMvps: builder.query<{ mvps: any[] }, string>({
       query: (id) => `/championship/${id}/mvps`,
       providesTags: ['Championship']
@@ -328,6 +332,7 @@ export const {
   useGetStandingsByDayQuery,
   useGetStandingsUptoGameDayQuery,
   useGetStandingsUptoRoundQuery,
+  useGetStandingsByGameDayQuery,
   useGetGameDayMvpsQuery,
   useGetRankSeriesQuery,
 } = championshipApi;

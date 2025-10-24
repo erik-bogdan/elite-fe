@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { Bebas_Neue } from 'next/font/google';
 import { useGetMyLeagueQuery } from '@/lib/features/apiSlice';
-import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetStandingsByDayQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetGameDayMvpsQuery } from '@/lib/features/championship/championshipSlice';
+import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetStandingsByDayQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetStandingsByGameDayQuery, useGetGameDayMvpsQuery } from '@/lib/features/championship/championshipSlice';
 import { FiChevronDown, FiChevronUp, FiArrowUp, FiArrowDown, FiMinus } from 'react-icons/fi';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import RankModal from '@/app/admin/championships/[id]/RankModal';
@@ -17,12 +17,12 @@ export default function LeaguePage() {
   const { data: championship, isLoading } = useGetChampionshipByIdQuery(leagueId!, { skip: !leagueId });
   const { data: leagueMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
 
-  const [selectedDay, setSelectedDay] = useState<string>('all');
+  const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [uptoGameDay, setUptoGameDay] = useState<number | 'all'>('all');
   const [uptoRound, setUptoRound] = useState<number | 'all'>('all');
 
   const { data: standingsData } = useGetStandingsQuery(leagueId!, { skip: !leagueId || !championship?.isStarted || selectedDay !== 'all' || uptoGameDay !== 'all' || uptoRound !== 'all' });
-  const { data: standingsByDay } = useGetStandingsByDayQuery({ id: leagueId!, date: selectedDay }, { skip: !leagueId || !championship?.isStarted || selectedDay === 'all' });
+  const { data: standingsByDay } = useGetStandingsByGameDayQuery({ id: leagueId!, gameDay: Number(selectedDay) }, { skip: !leagueId || !championship?.isStarted || selectedDay === 'all' });
   const { data: standingsUpto } = useGetStandingsUptoGameDayQuery({ id: leagueId!, gameDay: Number(uptoGameDay) }, { skip: !leagueId || !championship?.isStarted || uptoGameDay === 'all' || uptoRound !== 'all' });
   const { data: standingsPrev } = useGetStandingsUptoGameDayQuery({ id: leagueId!, gameDay: Number(uptoGameDay) - 1 }, { skip: !leagueId || !championship?.isStarted || uptoGameDay === 'all' || Number(uptoGameDay) <= 1 });
   const { data: standingsUptoRound } = useGetStandingsUptoRoundQuery({ id: leagueId!, round: Number(uptoRound) }, { skip: !leagueId || !championship?.isStarted || uptoRound === 'all' });
@@ -212,10 +212,10 @@ export default function LeaguePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end mb-3 gap-3 sm:gap-2">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
               <label className="text-white/70 text-sm">Játéknap:</label>
-              <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value); setUptoGameDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
+              <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setUptoGameDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
                 <option value="all">Összes</option>
-                {Array.from(new Set((leagueMatches || []).map((rm: any) => (rm.match.matchAt || rm.match.matchDate) && new Date(rm.match.matchAt || rm.match.matchDate).toISOString().slice(0,10)))).filter(Boolean).sort().map((d: string, idx: number) => (
-                  <option key={`day-${d}`} value={d}>Gameday {idx + 1}</option>
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+                  <option key={`gd-${g}`} value={g}>Gameday {g}</option>
                 ))}
               </select>
             </div>
@@ -259,7 +259,8 @@ export default function LeaguePage() {
             </thead>
             <tbody className="divide-y divide-[#ff5c1a]/20">
               {(() => {
-                let source = selectedDay === 'all' ? standingsData?.standings : standingsByDay?.standings;
+                let source = standingsData?.standings;
+                if (selectedDay !== 'all') source = standingsByDay?.standings;
                 if (uptoGameDay !== 'all') source = standingsUpto?.standings;
                 if (uptoRound !== 'all') source = standingsUptoRound?.standings;
                 const rows = (source && source.length > 0) ? source : [];
@@ -285,7 +286,7 @@ export default function LeaguePage() {
                   let tMatches = all.filter((row: any) => row.match.matchStatus === 'completed' && (row.match.homeTeamId === s.teamId || row.match.awayTeamId === s.teamId));
                   if (uptoRound !== 'all') tMatches = tMatches.filter((row: any) => Number(row.match.matchRound || 0) <= Number(uptoRound));
                   else if (uptoGameDay !== 'all') tMatches = tMatches.filter((row: any) => Number(row.match.gameDay || 0) <= Number(uptoGameDay));
-                  else if (selectedDay !== 'all') tMatches = tMatches.filter((row: any) => formatKey(row.match.matchAt || row.match.matchDate) === selectedDay);
+                  else if (selectedDay !== 'all') tMatches = tMatches.filter((row: any) => Number(row.match.gameDay || 0) === Number(selectedDay));
                   tMatches = tMatches.sort((a: any, b: any) => new Date(a.match.matchAt || a.match.matchDate || a.match.createdAt).getTime() - new Date(b.match.matchAt || b.match.matchDate || b.match.createdAt).getTime());
                   const last5 = tMatches.slice(-5).map((m: any) => {
                     const isHome = m.match.homeTeamId === s.teamId;

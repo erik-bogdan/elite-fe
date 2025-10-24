@@ -42,6 +42,7 @@ const getEffectiveDate = (row: any): Date | null => {
 export default function DashboardPage() {
   const router = useRouter();
   const [checkingInvite, setCheckingInvite] = useState(true);
+  const [upcomingCount, setUpcomingCount] = useState(5);
   // user → my league/team
   const { data: myLeague } = useGetMyLeagueQuery();
   const leagueId = myLeague?.leagueId;
@@ -111,7 +112,8 @@ export default function DashboardPage() {
     return `${dateStr} ${timeStr}`;
   };
 
-  const upcomingFive = upcoming.slice(0, 5).map((m) => ({
+  const upcomingToShow = upcoming.slice(0, upcomingCount);
+  const upcomingFive = upcomingToShow.map((m) => ({
     matchTitle: m.title,
     // Show delayed time if available, otherwise original time
     date: formatDateForDisplay(m.when),
@@ -328,6 +330,33 @@ export default function DashboardPage() {
                 <div className="text-white/70">Nincs közelgő meccs</div>
               )}
             </div>
+            
+            {/* Load More Button */}
+            {upcomingCount < upcoming.length && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setUpcomingCount(prev => Math.min(prev + 5, upcoming.length))}
+                  className="inline-flex items-center gap-2 bg-[#ff5c1a] hover:bg-[#ff5c1a]/80 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Következő 5 betöltése ({upcomingCount}/{upcoming.length})
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
+            {/* Reset Button */}
+            {upcomingCount > 5 && (
+              <div className="mt-2 text-center">
+                <button
+                  onClick={() => setUpcomingCount(5)}
+                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white/70 px-3 py-1 rounded text-xs transition-colors"
+                >
+                  Kevesebb megjelenítése
+                </button>
+              </div>
+            )}
           </motion.div>
           {/* Recent Activity */}
           <motion.div

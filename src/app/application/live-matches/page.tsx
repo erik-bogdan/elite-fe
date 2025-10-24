@@ -25,7 +25,12 @@ export default function LiveMatchesPage() {
   const liveMatches = useMemo(() => {
     const rows = Array.isArray(leagueMatches) ? leagueMatches : [];
     return rows
-      .filter((row: any) => (row?.match?.trackingActive === 1) || (row?.match?.matchStatus === 'in_progress'))
+      .filter((row: any) => {
+        // Exclude completed matches
+        if (row?.match?.matchStatus === 'completed') return false;
+        // Include only active tracking or in_progress matches
+        return (row?.match?.trackingActive === 1) || (row?.match?.matchStatus === 'in_progress');
+      })
       .map((row: any) => {
         const td = row?.match?.trackingData || {};
         const gs = td?.gameState || {};

@@ -170,6 +170,8 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                   max={25}
                   value={cupsA}
                   onChange={e => setCupsA(Number(e.target.value))}
+                  onFocus={e => (e.target as HTMLInputElement).select()}
+                  onClick={e => (e.target as HTMLInputElement).select()}
                   className={`w-20 sm:w-24 text-center bg-black/60 border-2 ${cupsA === 10 || cupsA > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
                   placeholder="Pohár"
                 />
@@ -249,6 +251,8 @@ export default function EnterResultModal({ open, onClose, teamA, teamB, onSubmit
                   max={25}
                   value={cupsB}
                   onChange={e => setCupsB(Number(e.target.value))}
+                  onFocus={e => (e.target as HTMLInputElement).select()}
+                  onClick={e => (e.target as HTMLInputElement).select()}
                   className={`w-20 sm:w-24 text-center bg-black/60 border-2 ${cupsB === 10 || cupsB > 10 ? 'border-[#ff5c1a]' : 'border-white/20'} text-white rounded-lg py-2 md:py-3 text-base md:text-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#ff5c1a]`}
                   placeholder="Pohár"
                 />
