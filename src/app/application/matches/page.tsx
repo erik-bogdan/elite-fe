@@ -3,23 +3,33 @@
 import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Bebas_Neue } from 'next/font/google';
-import { FiChevronDown, FiChevronUp, FiBarChart, FiUsers, FiCalendar, FiClock, FiExternalLink } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiBarChart, FiUsers, FiCalendar, FiClock, FiExternalLink, FiCheckCircle } from 'react-icons/fi';
+import { useRouter } from 'next/navigation';
 import { useGetMyLeagueQuery } from '@/lib/features/apiSlice';
-import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery } from '@/lib/features/championship/championshipSlice';
+import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation } from '@/lib/features/championship/championshipSlice';
 import GameStatsGrid from '@/components/GameStatsGrid';
+import EnterResultModal from '@/app/components/EnterResultModal';
 import { buildRoundsFromHistory, GameAction as HistAction } from '@/lib/tracking/rounds';
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 
 export default function MyMatchesPage() {
+  const router = useRouter();
   const { data: my, isLoading: loadingMy } = useGetMyLeagueQuery();
   const leagueId = my?.leagueId;
   const myTeamId = my?.teamId;
   const { data: championship } = useGetChampionshipByIdQuery(leagueId!, { skip: !leagueId });
-  const { data: leagueMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
+  const { data: leagueMatches, refetch: refetchMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
 
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  const [selectedMatchForResult, setSelectedMatchForResult] = useState<any>(null);
+  
+  // Match meta for result modal
+  const modalMatchId = selectedMatchForResult ? String(selectedMatchForResult.id || '') : '';
+  const { data: matchMeta, refetch: refetchMeta, isFetching: isFetchingMatchMeta } = useGetMatchMetaQuery(modalMatchId, { skip: !modalMatchId });
+  const [updateMatchResult] = useUpdateMatchResultMutation();
 
   const myMatches = useMemo(() => {
     const all = Array.isArray(leagueMatches) ? leagueMatches : [];
@@ -72,6 +82,7 @@ export default function MyMatchesPage() {
         originalTime;
       const effectiveTable = isDelayed && match.delayedTable ? match.delayedTable : originalTable;
       const effectiveRound = isDelayed && match.delayedRound ? match.delayedRound : originalRound;
+      const effectiveGameDay = (typeof match.delayedGameDay === 'number' && !Number.isNaN(match.delayedGameDay)) ? match.delayedGameDay : (match.gameDay || 1);
 
       console.log(match.matchTime);
       return {
@@ -80,7 +91,9 @@ export default function MyMatchesPage() {
         time: effectiveTime,
         table: effectiveTable,
         round: effectiveRound,
-        gameDay: match.gameDay || 1,
+        gameDay: effectiveGameDay,
+        originalGameDay: match.gameDay,
+        delayedGameDay: match.delayedGameDay,
         isDelayed,
         originalDate,
         originalTime,
@@ -138,6 +151,15 @@ export default function MyMatchesPage() {
       newExpanded.add(matchId);
     }
     setExpandedMatches(newExpanded);
+  };
+
+  const handleEnterResult = (match: any) => {
+    setSelectedMatchForResult(match);
+    setResultModalOpen(true);
+  };
+
+  const handleStartTracking = (matchId: string) => {
+    router.push(`/application/tracking/${matchId}`);
   };
 
   const getStatusColor = (status: string) => {
@@ -207,13 +229,18 @@ export default function MyMatchesPage() {
                 {gameDayGroup.matches.map((match) => (
                   <div key={match.id} className={`${match.isDelayed ? "bg-red-900/20" : "bg-black/40"} backdrop-blur-sm rounded-2xl border border-[#ff5c1a]/30 p-6 hover:border-[#ff5c1a]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#ff5c1a]/20 relative`}>
                     {/* Delayed badge */}
-                    {match.isDelayed && (
-                      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
-                        <div className="bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm font-bold transform -rotate-12">
-                          HALASZTVA
+                    {match.isDelayed && (() => {
+                      const originalGd = match.originalGameDay || 0;
+                      const delayedGd = match.delayedGameDay || 0;
+                      const badgeText = delayedGd > originalGd ? 'HALASZTOTT' : delayedGd < originalGd ? 'ELŐREHOZOTT' : 'HALASZTOTT';
+                      return (
+                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
+                          <div className="bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm font-bold transform -rotate-12">
+                            {badgeText}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                     {/* Match Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-2">
@@ -289,30 +316,51 @@ export default function MyMatchesPage() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => toggleMatchExpansion(match.id)}
-                        className="flex-1 bg-[#ff5c1a] hover:bg-[#e54d1a] text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center space-x-2"
-                      >
-                        {expandedMatches.has(match.id) ? (
-                          <>
-                            <FiChevronUp className="w-4 h-4" />
-                            <span>RÉSZLETEK</span>
-                          </>
-                        ) : (
-                          <>
-                            <FiChevronDown className="w-4 h-4" />
-                            <span>RÉSZLETEK</span>
-                          </>
-                        )}
-                      </button>
-                      {match.hasTrackingData && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex space-x-2">
                         <button 
-                          onClick={() => setSelectedMatchId(match.id)}
-                          className="bg-black/30 hover:bg-black/50 text-white p-2 rounded-lg transition-colors"
+                          onClick={() => toggleMatchExpansion(match.id)}
+                          className="flex-1 bg-[#ff5c1a] hover:bg-[#e54d1a] text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center space-x-2"
                         >
-                          <FiBarChart className="w-4 h-4" />
+                          {expandedMatches.has(match.id) ? (
+                            <>
+                              <FiChevronUp className="w-4 h-4" />
+                              <span>RÉSZLETEK</span>
+                            </>
+                          ) : (
+                            <>
+                              <FiChevronDown className="w-4 h-4" />
+                              <span>RÉSZLETEK</span>
+                            </>
+                          )}
                         </button>
+                        {match.hasTrackingData && (
+                          <button 
+                            onClick={() => setSelectedMatchId(match.id)}
+                            className="bg-black/30 hover:bg-black/50 text-white p-2 rounded-lg transition-colors"
+                          >
+                            <FiBarChart className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      {match.status !== 'completed' && (
+                        <div className="flex flex-col gap-2 mt-2">
+                          <hr className="border-white-300 my-2" />
+                          <button
+                            onClick={() => handleEnterResult(match)}
+                            className="flex-1 flex items-center justify-center gap-2 bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                          >
+                            <FiCheckCircle className="w-4 h-4" />
+                            <span>EREDMÉNY BEÍRÁSA</span>
+                          </button>
+                          <button
+                            onClick={() => handleStartTracking(match.id)}
+                            className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                          >
+                            <div className="w-4 h-4 rounded-full border-2 border-white"></div>
+                            <span>TRACKELÉS INDÍTÁSA</span>
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -394,6 +442,52 @@ export default function MyMatchesPage() {
           </div>
         )}
       </div>
+
+      {/* Enter Result Modal */}
+      {resultModalOpen && isFetchingMatchMeta && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="h-10 w-10 rounded-full border-4 border-[#ff5c1a] border-t-transparent animate-spin" />
+        </div>
+      )}
+      {resultModalOpen && !isFetchingMatchMeta && matchMeta && (
+        <EnterResultModal
+          open={true}
+          onClose={() => {
+            setResultModalOpen(false);
+            setSelectedMatchForResult(null);
+          }}
+          teamA={{ name: matchMeta.homeTeam.name, players: (matchMeta.homeTeam.players || []) }}
+          teamB={{ name: matchMeta.awayTeam.name, players: (matchMeta.awayTeam.players || []) }}
+          initialCupsA={matchMeta.score?.home}
+          initialCupsB={matchMeta.score?.away}
+          initialSelectedA={[matchMeta.selected?.homeFirstPlayerId, matchMeta.selected?.homeSecondPlayerId].filter(Boolean)}
+          initialSelectedB={[matchMeta.selected?.awayFirstPlayerId, matchMeta.selected?.awaySecondPlayerId].filter(Boolean)}
+          initialMvpA={matchMeta.mvp?.home}
+          initialMvpB={matchMeta.mvp?.away}
+          onSubmit={async (payload) => {
+            try {
+              await updateMatchResult({
+                id: modalMatchId,
+                body: {
+                  homeTeamScore: payload.cupsA,
+                  awayTeamScore: payload.cupsB,
+                  homeTeamBestPlayerId: payload.mvpAId || undefined,
+                  awayTeamBestPlayerId: payload.mvpBId || undefined,
+                  homeFirstPlayerId: payload.selectedAIds?.[0],
+                  homeSecondPlayerId: payload.selectedAIds?.[1],
+                  awayFirstPlayerId: payload.selectedBIds?.[0],
+                  awaySecondPlayerId: payload.selectedBIds?.[1],
+                }
+              }).unwrap();
+              await Promise.all([refetchMatches(), refetchMeta()]);
+              setResultModalOpen(false);
+              setSelectedMatchForResult(null);
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        />
+      )}
 
       {/* Tracking Data Modal */}
       {selectedMatchId && (() => {
