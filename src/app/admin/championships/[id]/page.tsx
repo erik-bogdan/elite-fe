@@ -9,7 +9,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from 'sonner';
-import { useGetAvailableTeamsForLeagueQuery, useGetChampionshipByIdQuery, useGetLeagueTeamsQuery, useAddTeamToLeagueMutation, useRemoveTeamFromLeagueMutation, useSendInviteForLeagueTeamMutation, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetStandingsByDayQuery, useGetGameDayMvpsQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery } from "@/lib/features/championship/championshipSlice";
+import { useGetAvailableTeamsForLeagueQuery, useGetChampionshipByIdQuery, useGetLeagueTeamsQuery, useAddTeamToLeagueMutation, useRemoveTeamFromLeagueMutation, useSendInviteForLeagueTeamMutation, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetStandingsByGameDayQuery, useGetGameDayMvpsQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery } from "@/lib/features/championship/championshipSlice";
 import RankModal from "./RankModal";
 import * as Tooltip from '@radix-ui/react-tooltip';
 import TeamAssignModal from "./TeamAssignModal";
@@ -109,11 +109,11 @@ export default function ChampionshipView() {
   });
   const { data: attachedTeams, refetch } = useGetLeagueTeamsQuery(championshipId!, { skip: !championshipId });
   const { data: availableTeams } = useGetAvailableTeamsForLeagueQuery(championshipId!, { skip: !championshipId });
-  const [selectedDay, setSelectedDay] = useState<string>('all');
+  const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [uptoGameDay, setUptoGameDay] = useState<number | 'all'>('all');
   const [uptoRound, setUptoRound] = useState<number | 'all'>('all');
-  const { data: standingsData, refetch: refetchStandings } = useGetStandingsQuery(championshipId!, { skip: !championshipId || !championship?.isStarted || selectedDay !== 'all' || uptoGameDay !== 'all' });
-  const { data: standingsByDay } = useGetStandingsByDayQuery({ id: championshipId!, date: selectedDay }, { skip: !championshipId || !championship?.isStarted || selectedDay === 'all' });
+  const { data: standingsData, refetch: refetchStandings } = useGetStandingsQuery(championshipId!, { skip: !championshipId || !championship?.isStarted || selectedDay !== 'all' || uptoGameDay !== 'all' || uptoRound !== 'all' });
+  const { data: standingsByDay } = useGetStandingsByGameDayQuery({ id: championshipId!, gameDay: Number(selectedDay) }, { skip: !championshipId || !championship?.isStarted || selectedDay === 'all' });
   const { data: standingsUpto } = useGetStandingsUptoGameDayQuery({ id: championshipId!, gameDay: Number(uptoGameDay) }, { skip: !championshipId || !championship?.isStarted || uptoGameDay === 'all' || uptoRound !== 'all' });
   const { data: standingsPrev } = useGetStandingsUptoGameDayQuery({ id: championshipId!, gameDay: Number(uptoGameDay) - 1 }, { skip: !championshipId || !championship?.isStarted || uptoGameDay === 'all' || Number(uptoGameDay) <= 1 });
   const { data: standingsUptoRound } = useGetStandingsUptoRoundQuery({ id: championshipId!, round: Number(uptoRound) }, { skip: !championshipId || !championship?.isStarted || uptoRound === 'all' });
@@ -476,10 +476,10 @@ export default function ChampionshipView() {
         {championship.isStarted && (
           <div className="flex items-center justify-end mb-3 gap-2">
             <label className="text-white/70">Játéknap:</label>
-            <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value); setUptoGameDay('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
+            <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setUptoGameDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
               <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
-                <option key={`gd-${g}`} value={String(g)}>Gameday {g}</option>
+              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+                <option key={`gd-${g}`} value={g}>Gameday {g}</option>
               ))}
             </select>
             <label className="text-white/70 ml-4">Játéknapig:</label>
@@ -660,7 +660,7 @@ export default function ChampionshipView() {
                     } else if (uptoGameDay !== 'all') {
                       teamMatches = teamMatches.filter((row: any) => Number((row.match.delayedGameDay || row.match.gameDay) || 0) <= Number(uptoGameDay));
                     } else if (selectedDay !== 'all') {
-                      teamMatches = teamMatches.filter((row: any) => Number((row.match.delayedGameDay || row.match.gameDay) || 0) === Number(selectedDay));
+                      teamMatches = teamMatches.filter((row: any) => Number(row.match.gameDay || 0) === Number(selectedDay));
                     }
                     teamMatches = teamMatches.sort((a: any, b: any) => new Date(a.match.matchDate || a.match.matchAt || a.match.createdAt).getTime() - new Date(b.match.matchDate || b.match.matchAt || b.match.createdAt).getTime());
                     const last5 = teamMatches.slice(-5).map((m: any) => {
