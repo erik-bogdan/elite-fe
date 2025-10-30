@@ -216,7 +216,7 @@ export default function ChampionshipView() {
   }
 
 
-  // Fetch real matches and group by match day (date)
+  // Fetch real matches and group by gameday (using delayedGameDay if available)
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
       const match = row.match;
@@ -227,17 +227,26 @@ export default function ChampionshipView() {
       const originalTimeSrc = match.matchTime || match.matchAt || null;
       const originalTableSrc = match.matchTable;
       const originalRoundSrc = match.matchRound;
+      const originalGameDaySrc = match.gameDay;
+      const delayedGameDaySrc = match.delayedGameDay;
       
       if (!originalDateSrc) return null;
       const originalDateIso = new Date(originalDateSrc).toISOString();
       const originalTimeIso = originalTimeSrc ? new Date(originalTimeSrc).toISOString() : null;
+      // Effective schedule if delayed
+      const effectiveGameDay = (typeof delayedGameDaySrc === 'number' && !Number.isNaN(delayedGameDaySrc)) ? delayedGameDaySrc : (typeof originalGameDaySrc === 'number' ? originalGameDaySrc : (originalGameDaySrc ? Number(originalGameDaySrc) : null));
+      const effectiveDateIso = (isDelayed && match.delayedDate) ? new Date(match.delayedDate).toISOString() : originalDateIso;
+      const effectiveTimeIso = (isDelayed && match.delayedTime) ? new Date(match.delayedTime).toISOString() : originalTimeIso;
+      const effectiveTable = (isDelayed && match.delayedTable) ? match.delayedTable : originalTableSrc;
+      const effectiveRound = (isDelayed && match.delayedRound) ? match.delayedRound : originalRoundSrc;
       
       return {
         id: match.id,
-        date: originalDateIso, // Original date for grouping
-        time: originalTimeIso,
-        table: originalTableSrc,
-        round: originalRoundSrc,
+        date: effectiveDateIso, // Effective date for grouping/ordering
+        time: effectiveTimeIso,
+        table: effectiveTable,
+        round: effectiveRound,
+        gameDay: effectiveGameDay,
         isDelayed,
         originalDateRaw: match.matchAt || match.matchDate,
         originalTime: match.matchTime || match.matchAt,
@@ -247,6 +256,7 @@ export default function ChampionshipView() {
         delayedTime: match.delayedTime,
         delayedTable: match.delayedTable,
         delayedRound: match.delayedRound,
+        delayedGameDay: delayedGameDaySrc,
         home: row.homeTeam?.name || match.homeTeamId,
         homeLogo: abs(row.homeTeam?.logo) || '/elitelogo.png',
         away: row.awayTeam?.name || match.awayTeamId,
@@ -257,54 +267,59 @@ export default function ChampionshipView() {
     })
     .filter(Boolean)
     .reduce((acc: Record<string, any[]>, m: any) => {
-      // Group by original date to maintain gameday order
-      const key = new Date(m.date).toISOString().slice(0,10);
+      // Group strictly by effective gameday if available; otherwise by effective date
+      const dateKey = new Date(m.date).toISOString().slice(0,10);
+      const key = (typeof m.gameDay === 'number' && !Number.isNaN(m.gameDay)) ? `gd:${m.gameDay}` : `d:${dateKey}`;
       if (!acc[key]) acc[key] = [];
       acc[key].push(m);
-      
-      // If delayed, also add to delayed date group
-      if (m.isDelayed && m.delayedDate) {
-        const delayedKey = new Date(m.delayedDate).toISOString().slice(0,10);
-        if (!acc[delayedKey]) acc[delayedKey] = [];
-        acc[delayedKey].push({
-          ...m,
-          date: new Date(m.delayedDate).toISOString(),
-          time: m.delayedTime ? new Date(m.delayedTime).toISOString() : null,
-          table: m.delayedTable,
-          round: m.delayedRound,
-        });
-      }
       
       return acc;
     }, {} as Record<string, any[]>);
   const matchDayList = Object.entries(matchDays)
-    .map(([date, items], idx) => ({
-      id: idx + 1,
-      date,
-      round: (items[0] as any)?.round ?? (idx + 1),
-      matches: items
-        .sort((a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime() || (a.table - b.table))
-        .map((m: any) => ({
-          id: m.id,
-          time: new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}),
-          tableNumber: m.table,
-          round: m.round,
-          isDelayed: m.isDelayed,
-          originalDateRaw: m.originalDateRaw,
-          originalTime: m.originalTime,
-          originalTable: m.originalTable,
-          originalRound: m.originalRound,
-          delayedDate: m.delayedDate,
-          delayedTime: m.delayedTime,
-          delayedTable: m.delayedTable,
-          delayedRound: m.delayedRound,
-          homeTeam: { name: m.home, logo: m.homeLogo },
-          awayTeam: { name: m.away, logo: m.awayLogo },
-          homeScore: m.homeScore,
-          awayScore: m.awayScore,
-        }))
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .map(([groupKey, items], idx) => {
+      // derive gameday (if grouped by gd:), otherwise infer date label from earliest date
+      const isGd = groupKey.startsWith('gd:');
+      const gameDayNum = isGd ? Number(groupKey.slice(3)) : undefined;
+      const earliest = items
+        .map((x: any) => new Date(x.date).getTime())
+        .reduce((min: number, t: number) => Math.min(min, t), Number.POSITIVE_INFINITY);
+      const dateIso = new Date(earliest).toISOString();
+      return ({
+        id: (typeof gameDayNum === 'number' && !Number.isNaN(gameDayNum)) ? gameDayNum : (idx + 1),
+        date: dateIso,
+        round: (items[0] as any)?.round ?? (idx + 1),
+        matches: items
+          .sort((a: any, b: any) => (a.time ? new Date(a.time).getTime() : 0) - (b.time ? new Date(b.time).getTime() : 0) || ((a.table || 0) - (b.table || 0)))
+          .map((m: any) => ({
+            id: m.id,
+            time: m.time ? new Date(m.time).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit'}) : '',
+            tableNumber: m.table,
+            round: m.round,
+            isDelayed: m.isDelayed,
+            originalDateRaw: m.originalDateRaw,
+            originalTime: m.originalTime,
+            originalTable: m.originalTable,
+            originalRound: m.originalRound,
+            delayedDate: m.delayedDate,
+            delayedTime: m.delayedTime,
+            delayedTable: m.delayedTable,
+            delayedRound: m.delayedRound,
+            delayedGameDay: m.delayedGameDay,
+            homeTeam: { name: m.home, logo: m.homeLogo },
+            awayTeam: { name: m.away, logo: m.awayLogo },
+            homeScore: m.homeScore,
+            awayScore: m.awayScore,
+          }))
+      });
+    })
+    .sort((a, b) => {
+      // Primary: sort by numeric gameday id if both are numeric and not fallback-generated
+      const isNumA = typeof a.id === 'number';
+      const isNumB = typeof b.id === 'number';
+      if (isNumA && isNumB) return (a.id as number) - (b.id as number);
+      // Fallback: sort by date
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
 
   // Group matches by round for collapsible sections
   const roundGroups = (Array.isArray(leagueMatches) ? leagueMatches : [])
@@ -463,8 +478,8 @@ export default function ChampionshipView() {
             <label className="text-white/70">Játéknap:</label>
             <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value); setUptoGameDay('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
               <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => (rm.match.matchDate || rm.match.matchAt) && new Date(rm.match.matchDate || rm.match.matchAt).toISOString().slice(0,10)))).filter(Boolean).sort().map((d: string, idx: number) => (
-                <option key={`day-${d}`} value={d}>Gameday {idx + 1}</option>
+              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+                <option key={`gd-${g}`} value={String(g)}>Gameday {g}</option>
               ))}
             </select>
             <label className="text-white/70 ml-4">Játéknapig:</label>
@@ -643,9 +658,9 @@ export default function ChampionshipView() {
                     if (uptoRound !== 'all') {
                       teamMatches = teamMatches.filter((row: any) => Number(row.match.matchRound || 0) <= Number(uptoRound));
                     } else if (uptoGameDay !== 'all') {
-                      teamMatches = teamMatches.filter((row: any) => Number(row.match.gameDay || 0) <= Number(uptoGameDay));
+                      teamMatches = teamMatches.filter((row: any) => Number((row.match.delayedGameDay || row.match.gameDay) || 0) <= Number(uptoGameDay));
                     } else if (selectedDay !== 'all') {
-                      teamMatches = teamMatches.filter((row: any) => formatKey(row.match.matchDate || row.match.matchAt) === selectedDay);
+                      teamMatches = teamMatches.filter((row: any) => Number((row.match.delayedGameDay || row.match.gameDay) || 0) === Number(selectedDay));
                     }
                     teamMatches = teamMatches.sort((a: any, b: any) => new Date(a.match.matchDate || a.match.matchAt || a.match.createdAt).getTime() - new Date(b.match.matchDate || b.match.matchAt || b.match.createdAt).getTime());
                     const last5 = teamMatches.slice(-5).map((m: any) => {
@@ -759,7 +774,7 @@ export default function ChampionshipView() {
                 className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white"
               >
                 <option value="latest">Legutóbbi játéknap</option>
-                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b).map((g:number)=> (
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b).map((g:number)=> (
                   <option key={`ex-gd-${g}`} value={g}>{g}. játéknap</option>
                 ))}
               </select>
@@ -783,7 +798,7 @@ export default function ChampionshipView() {
                   onClick={async ()=>{
                     try {
                       setIsGeneratingImage(true);
-                      const days = Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b);
+                      const days = Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b);
                       const gd = exportGameday === 'latest' ? (days[days.length-1] || 1) : exportGameday;
                       const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}`;
                       const params = new URLSearchParams();
@@ -816,7 +831,7 @@ export default function ChampionshipView() {
                         toast.error('Először generálj előnézetet!');
                         return;
                       }
-                      const days = Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b);
+                      const days = Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x:any)=>!!x).sort((a:any,b:any)=>a-b);
                       const gd = exportGameday === 'latest' ? (days[days.length-1] || 1) : exportGameday;
                       const a = document.createElement('a');
                       a.href = previewImageUrl;
