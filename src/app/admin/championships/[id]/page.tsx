@@ -133,6 +133,7 @@ export default function ChampionshipView() {
   const [exportGameday, setExportGameday] = useState<number | 'latest'>("latest" as any);
   const [playersForExport, setPlayersForExport] = useState<Array<{ id: string; label: string }>>([]);
   const [mvpPlayerId, setMvpPlayerId] = useState<string>('');
+  const [mvpLabelType, setMvpLabelType] = useState<'GAMEDAY MVP' | 'TOP PERFORMER'>('GAMEDAY MVP');
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [activeRow, setActiveRow] = useState<string | null>(null);
@@ -779,6 +780,15 @@ export default function ChampionshipView() {
                 ))}
               </select>
               <div className="pt-2">
+                <label className="block text-white/80 mb-1">Címke típus</label>
+                <select
+                  value={mvpLabelType}
+                  onChange={(e)=>setMvpLabelType(e.target.value as 'GAMEDAY MVP' | 'TOP PERFORMER')}
+                  className="w-full bg-black/40 border border-white/20 rounded px-3 py-2 text-white mb-3"
+                >
+                  <option value="GAMEDAY MVP">GAMEDAY MVP</option>
+                  <option value="TOP PERFORMER">TOP PERFORMER</option>
+                </select>
                 <label className="block text-white/80 mb-1">Gameday MVP játékos</label>
                 <select
                   value={mvpPlayerId}
@@ -803,6 +813,7 @@ export default function ChampionshipView() {
                       const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'}`;
                       const params = new URLSearchParams();
                       if (mvpPlayerId) params.set('mvpPlayerId', mvpPlayerId);
+                      if (mvpLabelType) params.set('mvpLabel', mvpLabelType);
                       const url = `${backend}/api/championship/${championshipId}/standings/gameday/${gd}/image${params.toString() ? `?${params.toString()}` : ''}`;
                       const res = await fetch(url, { credentials: 'include' });
                       if (!res.ok) throw new Error('Kép generálás sikertelen');
