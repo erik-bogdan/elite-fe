@@ -18,16 +18,18 @@ export default function AdminEditMatchModal({
   open: boolean;
   onClose: () => void;
   meta: any;
-  onSave: (payload: { matchAt?: string; matchRound?: number; matchTable?: number; matchStatus?: string; isDelayed?: boolean; delayedRound?: number; delayedDate?: string; delayedTime?: string; delayedTable?: number; result?: { cupsA: number; cupsB: number; mvpAId?: string; mvpBId?: string; selectedAIds?: string[]; selectedBIds?: string[] } }) => void;
+  onSave: (payload: { matchAt?: string; matchRound?: number; gameDay?: number; matchTable?: number; matchStatus?: string; isDelayed?: boolean; delayedRound?: number; delayedGameDay?: number; delayedDate?: string; delayedTime?: string; delayedTable?: number; result?: { cupsA: number; cupsB: number; mvpAId?: string; mvpBId?: string; selectedAIds?: string[]; selectedBIds?: string[] } }) => void;
 }) {
   const [matchAt, setMatchAt] = useState<string>(meta?.schedule?.matchAt ? new Date(meta.schedule.matchAt).toISOString().slice(0,16) : '');
   const [matchRound, setMatchRound] = useState<number | ''>(meta?.schedule?.matchRound ?? '');
+  const [gameDay, setGameDay] = useState<number | ''>(meta?.schedule?.gameDay ?? '');
   const [matchTable, setMatchTable] = useState<number | ''>(meta?.schedule?.matchTable ?? '');
   const [matchStatus, setMatchStatus] = useState<string>(meta?.schedule?.matchStatus || 'scheduled');
   
   // Delay fields
   const [isDelayed, setIsDelayed] = useState<boolean>(meta?.schedule?.isDelayed || false);
   const [delayedRound, setDelayedRound] = useState<number | ''>(meta?.schedule?.delayedRound ?? '');
+  const [delayedGameDay, setDelayedGameDay] = useState<number | ''>(meta?.schedule?.delayedGameDay ?? '');
   const [delayedDate, setDelayedDate] = useState<string>(() => {
     if (meta?.schedule?.delayedDate) {
       const date = new Date(meta.schedule.delayedDate);
@@ -101,7 +103,7 @@ export default function AdminEditMatchModal({
         <h2 className={`${bebasNeue.className} text-2xl text-white`}>Meccs szerkesztése (Admin)</h2>
 
         {/* Scheduling */}
-        <div className="bg-black/30 border border-[#ff5c1a]/30 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-black/30 border border-[#ff5c1a]/30 rounded-xl p-4 grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm text-[#e0e6f7] mb-1">Dátum és idő</label>
             <input type="datetime-local" value={matchAt} onChange={(e) => setMatchAt(e.target.value)} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
@@ -109,6 +111,10 @@ export default function AdminEditMatchModal({
           <div>
             <label className="block text-sm text-[#e0e6f7] mb-1">Forduló</label>
             <input type="number" min={1} value={matchRound as any} onChange={(e) => setMatchRound(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm text-[#e0e6f7] mb-1">Játéknap</label>
+            <input type="number" min={1} value={gameDay as any} onChange={(e) => setGameDay(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
           </div>
           <div>
             <label className="block text-sm text-[#e0e6f7] mb-1">Asztal</label>
@@ -137,22 +143,30 @@ export default function AdminEditMatchModal({
           </div>
           
           {isDelayed && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új forduló</label>
-                <input type="number" min={1} value={delayedRound as any} onChange={(e) => setDelayedRound(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új forduló</label>
+                  <input type="number" min={1} value={delayedRound as any} onChange={(e) => setDelayedRound(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új játéknap</label>
+                  <input type="number" min={1} value={delayedGameDay as any} onChange={(e) => setDelayedGameDay(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új asztal</label>
+                  <input type="number" min={1} value={delayedTable as any} onChange={(e) => setDelayedTable(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új dátum</label>
-                <input type="date" value={delayedDate} onChange={(e) => setDelayedDate(e.target.value)} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új idő</label>
-                <input type="time" value={delayedTime} onChange={(e) => setDelayedTime(e.target.value)} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
-              </div>
-              <div>
-                <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új asztal</label>
-                <input type="number" min={1} value={delayedTable as any} onChange={(e) => setDelayedTable(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új dátum</label>
+                  <input type="date" value={delayedDate} onChange={(e) => setDelayedDate(e.target.value)} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+                </div>
+                <div>
+                  <label className="block text-sm text-[#e0e6f7] mb-1">Halasztott új idő</label>
+                  <input type="time" value={delayedTime} onChange={(e) => setDelayedTime(e.target.value)} className="w-full bg-black/40 border border-[#ff5c1a]/40 rounded text-white px-3 py-2" />
+                </div>
               </div>
             </div>
           )}
@@ -279,10 +293,12 @@ export default function AdminEditMatchModal({
                 onSave({
                   matchAt: matchAtISO,
                   matchRound: matchRound === '' ? undefined : Number(matchRound),
+                  gameDay: gameDay === '' ? undefined : Number(gameDay),
                   matchTable: matchTable === '' ? undefined : Number(matchTable),
                   matchStatus: matchStatus || undefined,
                   isDelayed: isDelayed,
                   delayedRound: delayedRound === '' ? undefined : Number(delayedRound),
+                  delayedGameDay: delayedGameDay === '' ? undefined : Number(delayedGameDay),
                   delayedDate: delayedDateISO,
                   delayedTime: delayedTimeISO,
                   delayedTable: delayedTable === '' ? undefined : Number(delayedTable),
@@ -327,10 +343,12 @@ export default function AdminEditMatchModal({
                 onSave({
                   matchAt: matchAtISO,
                   matchRound: matchRound === '' ? undefined : Number(matchRound),
+                  gameDay: gameDay === '' ? undefined : Number(gameDay),
                   matchTable: matchTable === '' ? undefined : Number(matchTable),
                   matchStatus: matchStatus || undefined,
                   isDelayed: isDelayed,
                   delayedRound: delayedRound === '' ? undefined : Number(delayedRound),
+                  delayedGameDay: delayedGameDay === '' ? undefined : Number(delayedGameDay),
                   delayedDate: delayedDateISO,
                   delayedTime: delayedTimeISO,
                   delayedTable: delayedTable === '' ? undefined : Number(delayedTable),

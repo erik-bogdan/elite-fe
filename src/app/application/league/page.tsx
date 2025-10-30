@@ -73,17 +73,26 @@ export default function LeaguePage() {
       const originalTimeSrc = match.matchTime || match.matchAt || null;
       const originalTableSrc = match.matchTable;
       const originalRoundSrc = match.matchRound;
+      const originalGameDaySrc = match.gameDay;
+      const delayedGameDaySrc = match.delayedGameDay;
       
       if (!originalDateSrc) return null;
       const originalDateIso = new Date(originalDateSrc).toISOString();
       const originalTimeIso = originalTimeSrc ? new Date(originalTimeSrc).toISOString() : null;
+      // Effective schedule if delayed
+      const effectiveGameDay = (typeof delayedGameDaySrc === 'number' && !Number.isNaN(delayedGameDaySrc)) ? delayedGameDaySrc : (typeof originalGameDaySrc === 'number' ? originalGameDaySrc : (originalGameDaySrc ? Number(originalGameDaySrc) : null));
+      const effectiveDateIso = (isDelayed && match.delayedDate) ? new Date(match.delayedDate).toISOString() : originalDateIso;
+      const effectiveTimeIso = (isDelayed && match.delayedTime) ? new Date(match.delayedTime).toISOString() : originalTimeIso;
+      const effectiveTable = (isDelayed && match.delayedTable) ? match.delayedTable : originalTableSrc;
+      const effectiveRound = (isDelayed && match.delayedRound) ? match.delayedRound : originalRoundSrc;
       
       return {
         id: match.id,
-        date: originalDateIso, // Original date for grouping
-        time: originalTimeIso,
-        table: originalTableSrc,
-        round: originalRoundSrc,
+        date: effectiveDateIso, // Effective date for grouping/ordering
+        time: effectiveTimeIso,
+        table: effectiveTable,
+        round: effectiveRound,
+        gameDay: effectiveGameDay,
         isDelayed,
         originalDateRaw: match.matchAt || match.matchDate,
         originalTime: match.matchTime || match.matchAt,
@@ -93,6 +102,7 @@ export default function LeaguePage() {
         delayedTime: match.delayedTime,
         delayedTable: match.delayedTable,
         delayedRound: match.delayedRound,
+        delayedGameDay: delayedGameDaySrc,
         home: row.homeTeam?.name || match.homeTeamId,
         homeLogo: abs(row.homeTeam?.logo) || '/elitelogo.png',
         away: row.awayTeam?.name || match.awayTeamId,
@@ -103,31 +113,27 @@ export default function LeaguePage() {
     })
     .filter(Boolean)
     .reduce((acc: Record<string, any[]>, m: any) => {
-      // Group by original date to maintain gameday order
-      const key = new Date(m.date).toISOString().slice(0,10);
+      // Group strictly by effective gameday if available; otherwise by effective date
+      const dateKey = new Date(m.date).toISOString().slice(0,10);
+      const key = (typeof m.gameDay === 'number' && !Number.isNaN(m.gameDay)) ? `gd:${m.gameDay}` : `d:${dateKey}`;
       if (!acc[key]) acc[key] = [];
       acc[key].push(m);
-      
-      // If delayed, also add to delayed date group
-      if (m.isDelayed && m.delayedDate) {
-        const delayedKey = new Date(m.delayedDate).toISOString().slice(0,10);
-        if (!acc[delayedKey]) acc[delayedKey] = [];
-        acc[delayedKey].push({
-          ...m,
-          date: new Date(m.delayedDate).toISOString(),
-          time: m.delayedTime ? new Date(m.delayedTime).toISOString() : null,
-          table: m.delayedTable,
-          round: m.delayedRound,
-        });
-      }
       
       return acc;
     }, {} as Record<string, any[]>);
   const matchDayList = Object.entries(matchDays)
-    .map(([date, items], idx) => ({
-      id: idx + 1,
-      date,
-      round: (items[0] as any)?.round ?? (idx + 1),
+    .map(([groupKey, items], idx) => {
+      // derive gameday (if grouped by gd:), otherwise infer date label from earliest date
+      const isGd = groupKey.startsWith('gd:');
+      const gameDayNum = isGd ? Number(groupKey.slice(3)) : undefined;
+      const earliest = items
+        .map((x: any) => new Date(x.date).getTime())
+        .reduce((min: number, t: number) => Math.min(min, t), Number.POSITIVE_INFINITY);
+      const dateIso = new Date(earliest).toISOString();
+      return ({
+        id: (typeof gameDayNum === 'number' && !Number.isNaN(gameDayNum)) ? gameDayNum : (idx + 1),
+        date: dateIso,
+        round: (items[0] as any)?.round ?? (idx + 1),
       matches: items
         .map((m: any) => ({
           id: m.id,
@@ -146,14 +152,23 @@ export default function LeaguePage() {
           delayedTime: m.delayedTime,
           delayedTable: m.delayedTable,
           delayedRound: m.delayedRound,
+            delayedGameDay: m.delayedGameDay,
           homeTeam: { name: m.home, logo: m.homeLogo },
           awayTeam: { name: m.away, logo: m.awayLogo },
           homeScore: m.homeScore,
           awayScore: m.awayScore,
         }))
         .sort((a: any, b: any) => (a.sortTime - b.sortTime) || (a.tableNumber - b.tableNumber))
-    }))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      });
+    })
+    .sort((a, b) => {
+      // Primary: sort by numeric gameday id if both are numeric and not fallback-generated
+      const isNumA = typeof a.id === 'number';
+      const isNumB = typeof b.id === 'number';
+      if (isNumA && isNumB) return (a.id as number) - (b.id as number);
+      // Fallback: sort by date
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
 
   const toggleMatchDay = (matchDayId: number) => {
     setExpandedMatchDays(prev => prev.includes(matchDayId) ? prev.filter(id => id !== matchDayId) : [...prev, matchDayId]);
@@ -214,7 +229,7 @@ export default function LeaguePage() {
               <label className="text-white/70 text-sm">Játéknap:</label>
               <select value={selectedDay} onChange={(e) => { setSelectedDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setUptoGameDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
                 <option value="all">Összes</option>
-                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
                   <option key={`gd-${g}`} value={g}>Gameday {g}</option>
                 ))}
               </select>
@@ -223,7 +238,7 @@ export default function LeaguePage() {
               <label className="text-white/70 text-sm">Játéknapig:</label>
               <select value={uptoGameDay} onChange={(e) => { setUptoGameDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setSelectedDay('all'); setUptoRound('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1 text-sm w-full sm:w-auto">
                 <option value="all">Összes</option>
-                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+                {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
                   <option key={`gd-${g}`} value={g}>Gameday {g}</option>
                 ))}
               </select>
@@ -285,8 +300,8 @@ export default function LeaguePage() {
                   const all = (leagueMatches || []) as any[];
                   let tMatches = all.filter((row: any) => row.match.matchStatus === 'completed' && (row.match.homeTeamId === s.teamId || row.match.awayTeamId === s.teamId));
                   if (uptoRound !== 'all') tMatches = tMatches.filter((row: any) => Number(row.match.matchRound || 0) <= Number(uptoRound));
-                  else if (uptoGameDay !== 'all') tMatches = tMatches.filter((row: any) => Number(row.match.gameDay || 0) <= Number(uptoGameDay));
-                  else if (selectedDay !== 'all') tMatches = tMatches.filter((row: any) => Number(row.match.gameDay || 0) === Number(selectedDay));
+                  else if (uptoGameDay !== 'all') tMatches = tMatches.filter((row: any) => Number((row.match.delayedGameDay || row.match.gameDay) || 0) <= Number(uptoGameDay));
+                  else if (selectedDay !== 'all') tMatches = tMatches.filter((row: any) => Number((row.match.delayedGameDay || row.match.gameDay) || 0) === Number(selectedDay));
                   tMatches = tMatches.sort((a: any, b: any) => new Date(a.match.matchAt || a.match.matchDate || a.match.createdAt).getTime() - new Date(b.match.matchAt || b.match.matchDate || b.match.createdAt).getTime());
                   const last5 = tMatches.slice(-5).map((m: any) => {
                     const isHome = m.match.homeTeamId === s.teamId;

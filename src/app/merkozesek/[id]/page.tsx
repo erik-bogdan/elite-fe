@@ -18,7 +18,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
 
   // Get unique game days and rounds from matches
   const gameDays = matchesData ? 
-    Array.from(new Set(matchesData.map((match: any) => match.match.gameDay).filter(Boolean)))
+    Array.from(new Set(matchesData.map((match: any) => match.match.delayedGameDay || match.match.gameDay).filter(Boolean)))
       .sort((a: any, b: any) => a - b) : [];
 
   const rounds = matchesData ? 
@@ -28,7 +28,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
   // Filter matches by selected criteria (mutually exclusive)
   const filteredMatches = (matchesData || []).filter((match: any) => {
     if (selectedGameDay !== 'all') {
-      return match.match.gameDay === selectedGameDay;
+      return (match.match.delayedGameDay || match.match.gameDay) === selectedGameDay;
     } else if (selectedRound !== 'all') {
       return match.match.matchRound === selectedRound;
     }
@@ -37,7 +37,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
 
   // Group matches by game day and round
   const matchesByGameDay = filteredMatches.reduce((acc: any, match: any) => {
-    const gameDay = match.match.gameDay || 'Nincs játéknap';
+    const gameDay = match.match.delayedGameDay || match.match.gameDay || 'Nincs játéknap';
     if (!acc[gameDay]) {
       acc[gameDay] = {};
     }

@@ -470,7 +470,7 @@ export default function ChampionshipView() {
             <label className="text-white/70 ml-4">Játéknapig:</label>
             <select value={uptoGameDay} onChange={(e) => { setUptoGameDay(e.target.value === 'all' ? 'all' : Number(e.target.value)); setSelectedDay('all'); }} className="bg-black/40 text-white border border-white/20 rounded px-2 py-1">
               <option value="all">Összes</option>
-              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
+              {Array.from(new Set((leagueMatches || []).map((rm: any) => rm.match.delayedGameDay || rm.match.gameDay))).filter((x: any) => !!x).sort((a: any,b: any)=>a-b).map((g: number) => (
                 <option key={`gd-${g}`} value={g}>Gameday {g}</option>
               ))}
             </select>

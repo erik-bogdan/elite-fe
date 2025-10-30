@@ -9,6 +9,7 @@ import Select from 'react-select';
 import { useGetSeasonsQuery } from '@/lib/features/season/seasonSlice';
 import { useGetChampionshipsQuery } from '@/lib/features/championship/championshipSlice';
 import AdminEditMatchModal from './AdminEditMatchModal';
+import { Switch } from '@/components/ui/switch';
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 
@@ -35,6 +36,12 @@ export default function AdminMatchesPage() {
       return stored ? Number(stored) : '';
     }
     return '';
+  });
+  const [showDelayedOnly, setShowDelayedOnly] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin-matches-delayed') === 'true';
+    }
+    return false;
   });
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
@@ -65,16 +72,24 @@ export default function AdminMatchesPage() {
     }
   }, [round]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin-matches-delayed', String(showDelayedOnly));
+    }
+  }, [showDelayedOnly]);
+
   // Clear all filters function
   const clearFilters = () => {
     setSeasonId('');
     setLeagueId('');
     setRound('');
+    setShowDelayedOnly(false);
     setPage(1);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('admin-matches-seasonId');
       localStorage.removeItem('admin-matches-leagueId');
       localStorage.removeItem('admin-matches-round');
+      localStorage.removeItem('admin-matches-delayed');
     }
   };
 
@@ -87,6 +102,7 @@ export default function AdminMatchesPage() {
         if (seasonId) params.set('seasonId', String(seasonId));
         if (leagueId) params.set('leagueId', String(leagueId));
         if (typeof round === 'number') params.set('round', String(round));
+        if (showDelayedOnly) params.set('delayedOnly', 'true');
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
         const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches?${params.toString()}`;
@@ -102,7 +118,7 @@ export default function AdminMatchesPage() {
       }
     })();
     return () => { mounted = false };
-  }, [seasonId, leagueId, round, page, pageSize]);
+  }, [seasonId, leagueId, round, page, pageSize, showDelayedOnly]);
 
   // fetch available rounds when league changes
   const [rounds, setRounds] = useState<number[]>([]);
@@ -186,13 +202,13 @@ export default function AdminMatchesPage() {
       }
     } catch {}
   };
-  const handleSaveAdmin = async (payload: { matchAt?: string; matchRound?: number; matchTable?: number; matchStatus?: string; isDelayed?: boolean; delayedRound?: number; delayedDate?: string; delayedTime?: string; delayedTable?: number; result?: { cupsA: number; cupsB: number; mvpAId?: string; mvpBId?: string; selectedAIds?: string[]; selectedBIds?: string[] } }) => {
+  const handleSaveAdmin = async (payload: { matchAt?: string; matchRound?: number; gameDay?: number; matchTable?: number; matchStatus?: string; isDelayed?: boolean; delayedRound?: number; delayedGameDay?: number; delayedDate?: string; delayedTime?: string; delayedTable?: number; result?: { cupsA: number; cupsB: number; mvpAId?: string; mvpBId?: string; selectedAIds?: string[]; selectedBIds?: string[] } }) => {
     if (!modalMeta?.meta?.matchId) return;
     const id = modalMeta.meta.matchId;
     try {
       // First update admin fields
       const urlAdmin = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches/${id}/admin`;
-      const respA = await fetch(urlAdmin, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchAt: payload.matchAt, matchRound: payload.matchRound, matchTable: payload.matchTable, matchStatus: payload.matchStatus, isDelayed: payload.isDelayed, delayedRound: payload.delayedRound, delayedDate: payload.delayedDate, delayedTime: payload.delayedTime, delayedTable: payload.delayedTable })});
+      const respA = await fetch(urlAdmin, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchAt: payload.matchAt, matchRound: payload.matchRound, gameDay: payload.gameDay, matchTable: payload.matchTable, matchStatus: payload.matchStatus, isDelayed: payload.isDelayed, delayedRound: payload.delayedRound, delayedGameDay: payload.delayedGameDay, delayedDate: payload.delayedDate, delayedTime: payload.delayedTime, delayedTable: payload.delayedTable })});
       // Then, if result provided, update result
       if (payload.result) {
         const urlRes = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches/${id}/result`;
@@ -308,6 +324,14 @@ export default function AdminMatchesPage() {
             <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="px-3 py-2 bg-black/40 border border-[#ff5c1a]/30 rounded text-white">
               {[10, 20, 50].map(n => (<option key={n} value={n}>{n}/oldal</option>))}
             </select>
+            <div className="flex items-center gap-2 px-3 py-2 bg-black/40 border border-[#ff5c1a]/30 rounded">
+              <Switch 
+                id="showDelayedOnly" 
+                checked={showDelayedOnly} 
+                onCheckedChange={setShowDelayedOnly}
+              />
+              <label htmlFor="showDelayedOnly" className="text-white text-sm whitespace-nowrap">Csak halasztott</label>
+            </div>
             <button
               onClick={clearFilters}
               className="px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
@@ -330,6 +354,7 @@ export default function AdminMatchesPage() {
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Dátum</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Idő</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Forduló</th>
+              <th className="px-6 py-4 text-left text-[#e0e6f7]">Játéknap</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Asztal</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Státusz</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Eredmény</th>
@@ -341,9 +366,9 @@ export default function AdminMatchesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={12} className="px-6 py-6 text-white">Betöltés...</td></tr>
+              <tr><td colSpan={13} className="px-6 py-6 text-white">Betöltés...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={12} className="px-6 py-6 text-white">Nincs találat</td></tr>
+              <tr><td colSpan={13} className="px-6 py-6 text-white">Nincs találat</td></tr>
             ) : (
               items.map((row: any, idx: number) => {
                 const match = row.match;
@@ -384,6 +409,15 @@ export default function AdminMatchesPage() {
                       {match.matchAt ? new Date(match.matchAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '-'}
                     </td>
                     <td className="px-6 py-4 text-white">{match.matchRound ?? '-'}</td>
+                    <td className="px-6 py-4 text-white">
+                      {match.delayedGameDay ? (
+                        <span className="text-orange-400" title={`Halasztott eredeti játéknap: ${match.delayedGameDay}`}>
+                          <span style={{ textDecoration: 'line-through' }}>{match.gameDay}</span> → {match.delayedGameDay}
+                        </span>
+                      ) : (
+                        match.gameDay ?? '-'
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-white">{match.matchTable ?? '-'}</td>
                     <td className="px-6 py-4 text-white">{(() => {
                       const statusMap: Record<string, string> = {

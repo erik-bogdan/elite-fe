@@ -27,8 +27,9 @@ export default function ScriptModal({ isOpen, onClose, leagueMatches, championsh
   const availableGameDays = useMemo(() => {
     const gameDays = new Set<number>();
     (leagueMatches || []).forEach((row: any) => {
-      if (row.match?.gameDay) {
-        gameDays.add(row.match.gameDay);
+      const gameDay = row.match?.delayedGameDay || row.match?.gameDay;
+      if (gameDay) {
+        gameDays.add(gameDay);
       }
     });
     return Array.from(gameDays).sort((a, b) => a - b);
@@ -39,7 +40,7 @@ export default function ScriptModal({ isOpen, onClose, leagueMatches, championsh
     if (selectedGameDays.length === 0) return '';
 
     const matches = (leagueMatches || []).filter((row: any) => 
-      selectedGameDays.includes(row.match?.gameDay) && 
+      selectedGameDays.includes(row.match?.delayedGameDay || row.match?.gameDay) && 
       row.match?.matchStatus !== 'completed'
     );
 
