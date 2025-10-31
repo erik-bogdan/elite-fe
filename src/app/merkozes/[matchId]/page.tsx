@@ -361,7 +361,8 @@ export default function MatchDetailPage({ params }: { params: Promise<{ matchId:
                         alt={player.nickname || player.firstName || 'Játékos'}
                         fill
                         className="object-cover object-top"
-                        sizes="(max-width: 640px) 80px, (max-width: 768px) 96px, 112px"
+                        sizes="(max-width: 768px) 100px, 300px"
+                        quality={95}
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-xs sm:text-sm p-1 sm:p-2 opacity-0 group-hover:opacity-100 transition-opacity text-center truncate">
                         {player.nickname || `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Játékos'}
@@ -386,7 +387,8 @@ export default function MatchDetailPage({ params }: { params: Promise<{ matchId:
                         alt={player.nickname || player.firstName || 'Játékos'}
                         fill
                         className="object-cover object-top"
-                        sizes="(max-width: 640px) 80px, (max-width: 768px) 96px, 112px"
+                        sizes="(max-width: 768px) 100px, 300px"
+                        quality={95}
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white text-xs sm:text-sm p-1 sm:p-2 opacity-0 group-hover:opacity-100 transition-opacity text-center truncate">
                         {player.nickname || `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Játékos'}
