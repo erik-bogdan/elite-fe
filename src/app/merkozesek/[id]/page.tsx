@@ -3,6 +3,7 @@
 import { Bebas_Neue } from "next/font/google";
 import { useState, useEffect, use } from 'react';
 import Image from "next/image";
+import Link from "next/link";
 import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery } from '@/lib/features/championship/championshipSlice';
 import TopNav from '../../components/TopNav';
 
@@ -72,8 +73,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
   const formatMatchDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('hu-HU', { 
-      year: 'numeric',
-      month: 'long', 
+      month: 'short', 
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -143,17 +143,17 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
         </div>
 
         {/* Content Section - Centered */}
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-8">
-            <h2 className={`${bebasNeue.className} text-[#FFDB11] text-2xl md:text-3xl mb-6`}>
+        <div className="max-w-6xl mx-auto px-2 sm:px-4">
+          <div className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-4 sm:p-6 md:p-8">
+            <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl md:text-3xl mb-4 sm:mb-6`}>
               Mérkőzések
             </h2>
 
             {/* Filters */}
-          <div className="mb-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <label className="text-white/70 text-sm font-medium">Játéknap szűrő:</label>
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full">
+                <label className="text-white/70 text-xs sm:text-sm font-medium whitespace-nowrap">Játéknap szűrő:</label>
                 <select 
                   value={selectedGameDay} 
                   onChange={(e) => {
@@ -163,7 +163,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
                       setSelectedRound('all'); // Reset round filter when game day is selected
                     }
                   }}
-                  className="bg-black/40 text-white border border-white/20 rounded px-3 py-2 text-sm"
+                  className="w-full sm:w-auto bg-black/40 text-white border border-white/20 rounded px-3 py-2 text-sm"
                 >
                   <option value="all">Összes játéknap</option>
                   {gameDays.map((gameDay: number) => (
@@ -172,8 +172,8 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
                 </select>
               </div>
               
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <label className="text-white/70 text-sm font-medium">Forduló szűrő:</label>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full">
+                <label className="text-white/70 text-xs sm:text-sm font-medium whitespace-nowrap">Forduló szűrő:</label>
                 <select 
                   value={selectedRound} 
                   onChange={(e) => {
@@ -183,7 +183,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
                       setSelectedGameDay('all'); // Reset game day filter when round is selected
                     }
                   }}
-                  className="bg-black/40 text-white border border-white/20 rounded px-3 py-2 text-sm"
+                  className="w-full sm:w-auto bg-black/40 text-white border border-white/20 rounded px-3 py-2 text-sm"
                 >
                   <option value="all">Összes forduló</option>
                   {rounds.map((round: number) => (
@@ -195,105 +195,124 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
           </div>
 
           {/* Matches by Game Day and Round */}
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {Object.entries(matchesByGameDay).map(([gameDay, roundsData]: [string, any]) => (
-              <div key={gameDay} className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-6">
-                <h2 className={`${bebasNeue.className} text-[#FFDB11] text-2xl mb-6`}>
+              <div key={gameDay} className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-4 sm:p-6">
+                <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl mb-4 sm:mb-6`}>
                   Játéknap {gameDay}
                 </h2>
                 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {Object.entries(roundsData).map(([round, matches]: [string, any]) => (
-                    <div key={round} className="bg-black/30 rounded-xl p-4 border border-white/5">
-                      <h3 className={`${bebasNeue.className} text-white text-lg mb-4`}>
+                    <div key={round} className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/5">
+                      <h3 className={`${bebasNeue.className} text-white text-base sm:text-lg mb-3 sm:mb-4`}>
                         Forduló {round}
                       </h3>
                       
-                      <div className="space-y-4">
+                      <div className="space-y-3 sm:space-y-4">
                         {(matches as any[]).map((match: any) => {
                           const isDelayed = match.match.isDelayed || false;
                           const originalGd = match.match.gameDay || 0;
                           const delayedGd = match.match.delayedGameDay || 0;
                           const badgeText = delayedGd > originalGd ? 'HALASZTOTT' : delayedGd < originalGd ? 'ELŐREHOZOTT' : null;
+                          const showScore = match.match.matchStatus === 'completed' && match.match.homeTeamScore !== null && match.match.awayTeamScore !== null;
+                          const effectiveGameDay = (typeof match.match.delayedGameDay === 'number' && !Number.isNaN(match.match.delayedGameDay))
+                            ? match.match.delayedGameDay
+                            : match.match.gameDay;
+                          const isTracked = match.match.trackingActive === 2 || (match.match.trackingData && Object.keys(match.match.trackingData).length > 0);
+                          const isCompleted = match.match.matchStatus === 'completed';
                           
                           return (
-                            <div
+                            <Link
                               key={match.match.id}
-                              className={`relative bg-black/40 rounded-xl p-4 border ${isDelayed ? 'border-yellow-500/50' : 'border-white/10'} hover:border-white/20 transition-colors`}
+                              href={`/merkozes/${match.match.id}`}
+                              className={`relative bg-black/40 rounded-xl p-3 border ${isDelayed ? 'border-yellow-500/50' : 'border-white/10'} hover:border-white/20 transition-colors block`}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4 flex-1 min-w-0">
-                                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className="flex-shrink-0 w-10 h-10 relative">
-                                      {match.homeTeam?.logo ? (
-                                        <Image
-                                          src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.homeTeam.logo}`}
-                                          alt={match.homeTeam.name}
-                                          fill
-                                          className="object-contain"
-                                        />
-                                      ) : (
-                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                          <span className="text-sm text-white">?</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="text-white font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</div>
-                                      {match.match.homeTeamScore !== null && (
-                                        <div className="text-white/70 text-sm">{match.match.homeTeamScore}</div>
-                                      )}
-                                    </div>
+                              {/* Badge for delayed/moved matches - mobile: top */}
+                              {isDelayed && badgeText && (
+                                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                                  <div className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
+                                    badgeText === 'HALASZTOTT' ? 'bg-yellow-600/90 text-white' : 'bg-blue-600/90 text-white'
+                                  }`}>
+                                    {badgeText}
                                   </div>
-                                  
-                                  <div className="flex flex-col items-center gap-2 px-4 relative">
-                                    {/* Badge for delayed/moved matches - above VS */}
-                                    {isDelayed && badgeText && (
-                                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 z-10">
-                                        <div className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
-                                          badgeText === 'HALASZTOTT' ? 'bg-yellow-600/90 text-white' : 'bg-blue-600/90 text-white'
-                                        }`}>
-                                          {badgeText}
-                                        </div>
+                                </div>
+                              )}
+                              
+                              {/* Tracking badge for completed matches with tracking */}
+                              {isCompleted && isTracked && (
+                                <div className="absolute -top-3 right-4 z-10">
+                                  <div className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap bg-green-600/90 text-white flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    TRACKELT
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center justify-between">
+                                <Link href={`/csapat/${match.match.homeTeamId}`} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                                  <div className="flex-shrink-0 w-6 h-6 relative">
+                                    {match.homeTeam?.logo ? (
+                                      <Image
+                                        src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.homeTeam.logo}`}
+                                        alt={match.homeTeam.name}
+                                        fill
+                                        className="object-contain"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                                        <span className="text-xs text-white">?</span>
                                       </div>
                                     )}
-                                    <span className="text-white/70 text-sm">VS</span>
                                   </div>
-                                  
-                                  <div className="flex items-center gap-3 min-w-0 flex-1 justify-end">
-                                    <div className="min-w-0 text-right">
-                                      <div className="text-white font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</div>
-                                      {match.match.awayTeamScore !== null && (
-                                        <div className="text-white/70 text-sm">{match.match.awayTeamScore}</div>
-                                      )}
-                                    </div>
-                                    <div className="flex-shrink-0 w-10 h-10 relative">
-                                      {match.awayTeam?.logo ? (
-                                        <Image
-                                          src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.awayTeam.logo}`}
-                                          alt={match.awayTeam.name}
-                                          fill
-                                          className="object-contain"
-                                        />
-                                      ) : (
-                                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                                          <span className="text-sm text-white">?</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
+                                  <span className="text-white text-sm font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</span>
+                                </Link>
+                                
+                                <div className="flex items-center gap-3 px-4">
+                                  {showScore && (
+                                    <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.homeTeamScore}</span>
+                                  )}
+                                  <span className="text-white/50 text-xs">VS</span>
+                                  {showScore && (
+                                    <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.awayTeamScore}</span>
+                                  )}
                                 </div>
                                 
-                                <div className="flex flex-col items-end ml-4 min-w-0">
-                                  <div className={`text-sm font-medium ${getMatchStatusColor(match.match.matchStatus)}`}>
-                                    {getMatchStatusText(match.match.matchStatus)}
+                                <Link href={`/csapat/${match.match.awayTeamId}`} className="flex items-center gap-3 flex-1 min-w-0 justify-end hover:opacity-80 transition-opacity">
+                                  <span className="text-white text-sm font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</span>
+                                  <div className="flex-shrink-0 w-6 h-6 relative">
+                                    {match.awayTeam?.logo ? (
+                                      <Image
+                                        src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.awayTeam.logo}`}
+                                        alt={match.awayTeam.name}
+                                        fill
+                                        className="object-contain"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                                        <span className="text-xs text-white">?</span>
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="text-white/70 text-sm">
-                                    {formatMatchDate(match.match.matchAt || match.match.matchDate)}
-                                  </div>
+                                </Link>
+                              </div>
+                              <div className="text-center mt-2">
+                                <div className="text-white/60 text-xs">
+                                  {isDelayed && match.match.delayedTime ? 
+                                    formatMatchDate(match.match.delayedTime) : 
+                                    formatMatchDate(match.match.matchAt || match.match.matchDate)
+                                  }
+                                </div>
+                                <div className="text-white/40 text-xs">
+                                  Játéknap {effectiveGameDay || '?'}
+                                </div>
+                                <div className={`text-xs mt-1 ${getMatchStatusColor(match.match.matchStatus)}`}>
+                                  {getMatchStatusText(match.match.matchStatus)}
                                 </div>
                               </div>
-                            </div>
+                            </Link>
                           );
                         })}
                       </div>

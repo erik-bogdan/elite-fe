@@ -234,8 +234,10 @@ export default function MyMatchesPage() {
                       const delayedGd = match.delayedGameDay || 0;
                       const badgeText = delayedGd > originalGd ? 'HALASZTOTT' : delayedGd < originalGd ? 'ELŐREHOZOTT' : 'HALASZTOTT';
                       return (
-                        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
-                          <div className="bg-gray-800/90 text-white px-4 py-2 rounded-lg text-sm font-bold transform -rotate-12">
+                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
+                          <div className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
+                            badgeText === 'HALASZTOTT' ? 'bg-yellow-600/90 text-white' : 'bg-blue-600/90 text-white'
+                          }`}>
                             {badgeText}
                           </div>
                         </div>

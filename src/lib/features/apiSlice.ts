@@ -106,6 +106,16 @@ export const apiSlice = createApi({
       providesTags: (result, error, id) => [{ type: "Team", id }],
     }),
 
+    // Get matches for a team
+    getTeamMatches: builder.query<any[], { teamId: string; seasonId?: string }>({
+      query: ({ teamId, seasonId }) => {
+        const params = new URLSearchParams();
+        if (seasonId) params.set('seasonId', seasonId);
+        return `/teams/${teamId}/matches${params.toString() ? `?${params.toString()}` : ''}`;
+      },
+      providesTags: (result, error, { teamId }) => [{ type: "Team", id: teamId }],
+    }),
+
     // Create new team
     createTeam: builder.mutation<Team, Partial<Team>>({
       query: (team) => ({
@@ -294,6 +304,7 @@ export const { setSelectedTeam } = dataSlice.actions;
 export const {
   useGetTeamsQuery,
   useGetTeamByIdQuery,
+  useGetTeamMatchesQuery,
   useCreateTeamMutation,
   useUpdateTeamMutation,
   useDeleteTeamMutation,

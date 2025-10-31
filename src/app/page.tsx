@@ -6,7 +6,9 @@ import Table from "./components/Table";
 import HeaderSection from "./sections/HeaderSection";
 import { motion, useViewportScroll, useTransform, AnimatePresence } from 'framer-motion';
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ChampionModal from '../components/ChampionModal';
 import { useGetChampionshipsQuery, useGetLeagueTeamsQuery, useGetStandingsQuery, useGetMatchesForLeagueQuery } from '../lib/features/championship/championshipSlice';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
@@ -201,32 +203,33 @@ function CurrentTeams() {
             {/* Teams Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6 md:gap-8">
               {teams.map((team, teamIndex) => (
-                <motion.div
-                  key={team.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: teamIndex * 0.1 }}
-                  viewport={{ once: true }}
-                  className="flex flex-col items-center group cursor-pointer"
-                >
-                  {/* Team Logo */}
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mb-2 sm:mb-3 overflow-hidden transition-all duration-300 group-hover:scale-110">
-                    <Image 
-                      src={team.logo ? abs(team.logo) : "/elitelogo.png"} 
-                      alt={team.name} 
-                      fill
-                      className="object-contain group-hover:brightness-110 transition-all duration-300"
-                      sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 96px"
-                    />
-                  </div>
-                  
-                  {/* Team Name */}
-                  <div className="text-center">
-                    <h4 className={`${bebasNeue.className} text-white text-xs sm:text-sm md:text-base font-bold leading-tight group-hover:text-[#FFDB11] transition-colors duration-300`}>
-                      {team.name}
-                    </h4>
-                  </div>
-                </motion.div>
+                <Link key={team.id} href={`/csapat/${team.id}`}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: teamIndex * 0.1 }}
+                    viewport={{ once: true }}
+                    className="flex flex-col items-center group cursor-pointer"
+                  >
+                    {/* Team Logo */}
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 mb-2 sm:mb-3 overflow-hidden transition-all duration-300 group-hover:scale-110">
+                      <Image 
+                        src={team.logo ? abs(team.logo) : "/elitelogo.png"} 
+                        alt={team.name} 
+                        fill
+                        className="object-contain group-hover:brightness-110 transition-all duration-300"
+                        sizes="(max-width: 640px) 64px, (max-width: 768px) 80px, 96px"
+                      />
+                    </div>
+                    
+                    {/* Team Name */}
+                    <div className="text-center">
+                      <h4 className={`${bebasNeue.className} text-white text-xs sm:text-sm md:text-base font-bold leading-tight group-hover:text-[#FFDB11] transition-colors duration-300`}>
+                        {team.name}
+                      </h4>
+                    </div>
+                  </motion.div>
+                </Link>
               ))}
             </div>
 
@@ -348,7 +351,7 @@ function ChampionshipTables() {
                   {team.rank || index + 1}
                 </td>
                 <td className="px-3 py-3">
-                  <div className="flex items-center gap-3">
+                  <Link href={`/csapat/${team.teamId}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                     <div className="relative w-8 h-8 flex-shrink-0">
                       <Image 
                         src={team.logo ? abs(team.logo) : "/elitelogo.png"} 
@@ -358,7 +361,7 @@ function ChampionshipTables() {
                       />
                     </div>
                     <span className="font-medium truncate">{team.name}</span>
-                  </div>
+                  </Link>
                 </td>
                 <td className="px-3 py-3 text-center">
                   {team.games || 0}
@@ -583,65 +586,90 @@ function UpcomingMatches() {
     });
   };
 
-  const MatchCard = ({ match, showScore = false }: { match: any, showScore?: boolean }) => (
-    <div className="bg-black/40 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex-shrink-0 w-6 h-6 relative">
-            {match.homeTeam?.logo ? (
-              <Image
-                src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.homeTeam.logo}`}
-                alt={match.homeTeam.name}
-                fill
-                className="object-contain"
-              />
-            ) : (
-              <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white">?</span>
-              </div>
+  const MatchCard = ({ match, showScore = false }: { match: any, showScore?: boolean }) => {
+    const router = useRouter();
+    
+    const handleTeamClick = (e: React.MouseEvent, teamId: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      router.push(`/csapat/${teamId}`);
+    };
+    
+    const isTracked = match.match.trackingActive === 2 || (match.match.trackingData && Object.keys(match.match.trackingData).length > 0);
+    const isCompleted = match.match.matchStatus === 'completed';
+    
+    return (
+      <Link href={`/merkozes/${match.match.id}`} className="relative bg-black/40 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors block">
+        {/* Tracking badge for completed matches with tracking */}
+        {isCompleted && isTracked && (
+          <div className="absolute -top-3 right-4 z-10">
+            <div className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap bg-green-600/90 text-white flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              TRACKELT
+            </div>
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between">
+          <div onClick={(e) => handleTeamClick(e, match.homeTeam?.id || '')} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="flex-shrink-0 w-6 h-6 relative">
+              {match.homeTeam?.logo ? (
+                <Image
+                  src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.homeTeam.logo}`}
+                  alt={match.homeTeam.name}
+                  fill
+                  className="object-contain"
+                />
+              ) : (
+                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-xs text-white">?</span>
+                </div>
+              )}
+            </div>
+            <span className="text-white text-sm font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</span>
+          </div>
+          
+          <div className="flex items-center gap-3 px-4">
+            {showScore && match.match.homeTeamScore !== null && (
+              <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.homeTeamScore}</span>
+            )}
+            <span className="text-white/50 text-xs">VS</span>
+            {showScore && match.match.awayTeamScore !== null && (
+              <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.awayTeamScore}</span>
             )}
           </div>
-          <span className="text-white text-sm font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</span>
-        </div>
-        
-        <div className="flex items-center gap-3 px-4">
-          {showScore && match.match.homeTeamScore !== null && (
-            <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.homeTeamScore}</span>
-          )}
-          <span className="text-white/50 text-xs">VS</span>
-          {showScore && match.match.awayTeamScore !== null && (
-            <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.awayTeamScore}</span>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-3 flex-1 min-w-0 justify-end">
-          <span className="text-white text-sm font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</span>
-          <div className="flex-shrink-0 w-6 h-6 relative">
-            {match.awayTeam?.logo ? (
-              <Image
-                src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.awayTeam.logo}`}
-                alt={match.awayTeam.name}
-                fill
-                className="object-contain"
-              />
-            ) : (
-              <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white">?</span>
-              </div>
-            )}
+          
+          <div onClick={(e) => handleTeamClick(e, match.awayTeam?.id || '')} className="flex items-center gap-3 flex-1 min-w-0 justify-end hover:opacity-80 transition-opacity cursor-pointer">
+            <span className="text-white text-sm font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</span>
+            <div className="flex-shrink-0 w-6 h-6 relative">
+              {match.awayTeam?.logo ? (
+                <Image
+                  src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.awayTeam.logo}`}
+                  alt={match.awayTeam.name}
+                  fill
+                  className="object-contain"
+                />
+              ) : (
+                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                  <span className="text-xs text-white">?</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <div className="text-center mt-2">
-        <div className="text-white/60 text-xs">
-          {formatMatchDate(match.match.matchAt || match.match.matchDate)}
+        <div className="text-center mt-2">
+          <div className="text-white/60 text-xs">
+            {formatMatchDate(match.match.matchAt || match.match.matchDate)}
+          </div>
+          <div className="text-white/40 text-xs">
+            Játéknap {match.match.gameDay || '?'}
+          </div>
         </div>
-        <div className="text-white/40 text-xs">
-          Játéknap {match.match.gameDay || '?'}
-        </div>
-      </div>
-    </div>
-  );
+      </Link>
+    );
+  };
 
   const UpcomingMatchesTable = ({ matches, title, color, championshipId }: { 
     matches: any[], 
