@@ -200,11 +200,16 @@ export const apiSlice = createApi({
         teamId ? ["Player", { type: "Team", id: teamId }, { type: "Player", id: teamId }] : ["Player"],
     }),
 
-    // All players or by season
-    getPlayers: builder.query<Player[], { seasonId?: string } | void>({
-      query: (arg) => arg && (arg as any).seasonId
-        ? `/players?seasonId=${encodeURIComponent((arg as any).seasonId)}`
-        : `/players`,
+    // All players or by season, league, or team
+    getPlayers: builder.query<Player[], { seasonId?: string; leagueId?: string; teamId?: string } | void>({
+      query: (arg) => {
+        if (!arg) return `/players`;
+        const params = new URLSearchParams();
+        if ((arg as any).seasonId) params.set('seasonId', (arg as any).seasonId);
+        if ((arg as any).leagueId) params.set('leagueId', (arg as any).leagueId);
+        if ((arg as any).teamId) params.set('teamId', (arg as any).teamId);
+        return `/players?${params.toString()}`;
+      },
       providesTags: ["Player"],
     }),
     searchPlayers: builder.query<Player[], { q: string; teamId?: string; seasonId?: string }>({

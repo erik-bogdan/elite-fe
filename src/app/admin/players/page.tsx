@@ -6,9 +6,11 @@ import { FiUser, FiUserPlus, FiChevronRight, FiMail } from "react-icons/fi";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Select from 'react-select';
 import AddPlayerModal from "./components/AddPlayerModal";
 import { useGetPlayersQuery, useGetTeamsQuery, useSendPlayerInviteMutation } from "@/lib/features/apiSlice";
 import { useGetSeasonsQuery } from "@/lib/features/season/seasonSlice";
+import { useGetChampionshipsQuery, useGetLeagueTeamsQuery } from "@/lib/features/championship/championshipSlice";
 import { useModal } from "@/hooks/modalHook";
 import { toast } from "sonner";
 
@@ -26,7 +28,28 @@ export default function PlayersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const { data: seasons } = useGetSeasonsQuery();
-  const [selectedSeason, setSelectedSeason] = useState<string | 'all'>('all');
+  const { data: championships } = useGetChampionshipsQuery();
+  
+  // Load filters from localStorage
+  const [selectedSeason, setSelectedSeason] = useState<string | 'all'>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin-players-seasonId') || 'all';
+    }
+    return 'all';
+  });
+  const [leagueId, setLeagueId] = useState<string | ''>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin-players-leagueId') || '';
+    }
+    return '';
+  });
+  const [teamId, setTeamId] = useState<string | ''>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin-players-teamId') || '';
+    }
+    return '';
+  });
+  
   // Default to active season when available
   useEffect(() => {
     if (selectedSeason === 'all' && Array.isArray(seasons)) {
@@ -34,8 +57,42 @@ export default function PlayersPage() {
       if (active) setSelectedSeason(String(active.id));
     }
   }, [seasons, selectedSeason]);
-  const { data: playersData } = useGetPlayersQuery(selectedSeason === 'all' ? undefined : { seasonId: selectedSeason });
+  
+  // Save filters to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (selectedSeason === 'all') {
+        localStorage.removeItem('admin-players-seasonId');
+      } else {
+        localStorage.setItem('admin-players-seasonId', selectedSeason);
+      }
+    }
+  }, [selectedSeason]);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin-players-leagueId', leagueId);
+    }
+  }, [leagueId]);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin-players-teamId', teamId);
+    }
+  }, [teamId]);
+  
+  // Build query params for players
+  const playersQueryParams = useMemo(() => {
+    const params: { seasonId?: string; leagueId?: string; teamId?: string } = {};
+    if (selectedSeason !== 'all') params.seasonId = selectedSeason;
+    if (leagueId) params.leagueId = leagueId;
+    if (teamId) params.teamId = teamId;
+    return Object.keys(params).length > 0 ? params : undefined;
+  }, [selectedSeason, leagueId, teamId]);
+  
+  const { data: playersData } = useGetPlayersQuery(playersQueryParams);
   const { data: teamsData } = useGetTeamsQuery();
+  const { data: leagueTeams } = useGetLeagueTeamsQuery(leagueId, { skip: !leagueId });
   const players = playersData || [];
   const [sendInvite, { isLoading: inviteLoading }] = useSendPlayerInviteMutation();
   const [invited, setInvited] = useState<Set<string>>(new Set());
@@ -45,6 +102,44 @@ export default function PlayersPage() {
     (teamsData || []).forEach(t => map.set(String(t.id), t.name));
     return map;
   }, [teamsData]);
+
+  // Filter championships by selected season
+  const leaguesForSeason = useMemo(() => {
+    if (!seasons || !championships) return [] as any[];
+    return (championships as any[]).filter((c) => String(c.seasonId) === String(selectedSeason));
+  }, [seasons, championships, selectedSeason]);
+
+  // Get teams for selected league
+  const teamsForLeague = useMemo(() => {
+    if (!leagueId || !leagueTeams) return [] as any[];
+    return Array.isArray(leagueTeams) ? leagueTeams : [];
+  }, [leagueId, leagueTeams]);
+
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+      borderColor: 'rgba(255, 92, 26, 0.5)',
+      boxShadow: 'none',
+      '&:hover': { borderColor: 'rgba(255, 92, 26, 0.8)' },
+      minWidth: 220,
+    }),
+    menu: (base: any) => ({
+      ...base,
+      backgroundColor: '#001a3a',
+      border: '1px solid rgba(255, 92, 26, 0.5)',
+      zIndex: 40,
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      backgroundColor: state.isFocused ? 'rgba(255, 92, 26, 0.2)' : 'transparent',
+      color: 'white',
+      '&:hover': { backgroundColor: 'rgba(255, 92, 26, 0.2)' },
+    }),
+    singleValue: (base: any) => ({ ...base, color: 'white' }),
+    input: (base: any) => ({ ...base, color: 'white' }),
+    placeholder: (base: any) => ({ ...base, color: 'rgba(255,255,255,0.7)' }),
+  } as const;
 
   const handlePlayerClick = (playerId: string) => {
     router.push(`/admin/players/${playerId}`);
@@ -69,7 +164,7 @@ export default function PlayersPage() {
               <FiUser className="w-6 h-6 text-[#ff5c1a]" />
             </div>
             <div>
-              <p className="text-[#e0e6f7]">Total Players</p>
+              <p className="text-[#e0e6f7]">Összes Játékos</p>
               <p className={`${bebasNeue.className} text-3xl text-white`}>{players.length}</p>
             </div>
           </div>
@@ -86,7 +181,7 @@ export default function PlayersPage() {
               <FiUser className="w-6 h-6 text-[#ff5c1a]" />
             </div>
             <div>
-              <p className="text-[#e0e6f7]">Active Players</p>
+              <p className="text-[#e0e6f7]">Aktív Játékos</p>
               <p className={`${bebasNeue.className} text-3xl text-white`}>
                 {players.filter((player: any) => player.status === "active").length}
               </p>
@@ -105,7 +200,7 @@ export default function PlayersPage() {
               <FiUser className="w-6 h-6 text-[#ff5c1a]" />
             </div>
             <div>
-              <p className="text-[#e0e6f7]">Teams</p>
+              <p className="text-[#e0e6f7]">Csapatok</p>
               <p className={`${bebasNeue.className} text-3xl text-white`}>
                 {new Set(players.map((p: any) => p.teamId).filter(Boolean)).size}
               </p>
@@ -121,28 +216,60 @@ export default function PlayersPage() {
         transition={{ delay: 0.3 }}
         className="bg-gradient-to-br from-[#001a3a]/80 to-[#002b6b]/90 rounded-xl overflow-hidden border border-[#ff5c1a]/40"
       >
-        <div className="flex justify-between items-center p-6 border-b border-[#ff5c1a]/20">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between p-6 border-b border-[#ff5c1a]/20">
           <h2 className={`${bebasNeue.className} text-2xl text-white`}>Játékosok</h2>
-          <div className="flex items-center gap-3">
-            <label className="text-[#e0e6f7]">Szezon:</label>
-            <select
-              value={selectedSeason}
-              onChange={(e) => setSelectedSeason(e.target.value as any)}
-              className="bg-black/60 border-2 border-[#ff5c1a] text-white rounded-lg px-3 py-2"
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-[220px]">
+              <Select
+                options={[{ value: 'all', label: 'Összes Szezon' }, ...(seasons || []).map(s => ({ value: String(s.id), label: s.name }))]}
+                value={(() => {
+                  if (selectedSeason === 'all') return { value: 'all', label: 'Összes Szezon' } as any;
+                  const s = (seasons || []).find(ss => String(ss.id) === String(selectedSeason));
+                  return { value: String(selectedSeason), label: s?.name || String(selectedSeason) } as any;
+                })()}
+                onChange={(opt: any) => { 
+                  setSelectedSeason(opt?.value || 'all'); 
+                  setLeagueId(''); 
+                  setTeamId(''); 
+                  setCurrentPage(1); 
+                }}
+                styles={selectStyles as any}
+              />
+            </div>
+            <div className="min-w-[220px]">
+              <Select
+                isDisabled={selectedSeason === 'all'}
+                options={[{ value: '', label: 'Összes Bajnokság' }, ...leaguesForSeason.map((l: any) => ({ value: String(l.id), label: l.name }))]}
+                value={(() => {
+                  if (!leagueId) return { value: '', label: 'Összes Bajnokság' } as any;
+                  const l = leaguesForSeason.find((ll: any) => String(ll.id) === String(leagueId));
+                  return { value: String(leagueId), label: l?.name || String(leagueId) } as any;
+                })()}
+                onChange={(opt: any) => { setLeagueId(opt?.value || ''); setTeamId(''); setCurrentPage(1); }}
+                styles={selectStyles as any}
+              />
+            </div>
+            <div className="min-w-[220px]">
+              <Select
+                isDisabled={!leagueId}
+                options={[{ value: '', label: 'Összes Csapat' }, ...teamsForLeague.map((t: any) => ({ value: String(t.id), label: t.name || String(t.id) }))]}
+                value={(() => {
+                  if (!teamId) return { value: '', label: 'Összes Csapat' } as any;
+                  const t = teamsForLeague.find((tt: any) => String(tt.id) === String(teamId));
+                  return { value: String(teamId), label: t?.name || String(teamId) } as any;
+                })()}
+                onChange={(opt: any) => { setTeamId(opt?.value || ''); setCurrentPage(1); }}
+                styles={selectStyles as any}
+              />
+            </div>
+            <button
+              onClick={openAddPlayerModal}
+              className="flex items-center gap-2 px-4 py-2 bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white rounded-lg transition-colors"
             >
-              <option value="all">Összes</option>
-              {(seasons || []).map((s) => (
-                <option key={s.id} value={String(s.id)}>{s.name}</option>
-              ))}
-            </select>
+              <FiUserPlus className="w-5 h-5" />
+              Új Játékos
+            </button>
           </div>
-          <button
-            onClick={openAddPlayerModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white rounded-lg transition-colors"
-          >
-            <FiUserPlus className="w-5 h-5" />
-            Új Játékos
-          </button>
         </div>
 
         <div className="overflow-x-auto">

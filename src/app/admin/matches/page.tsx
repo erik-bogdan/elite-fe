@@ -43,6 +43,12 @@ export default function AdminMatchesPage() {
     }
     return false;
   });
+  const [teamId, setTeamId] = useState<string | ''>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin-matches-teamId') || '';
+    }
+    return '';
+  });
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
 
@@ -78,17 +84,25 @@ export default function AdminMatchesPage() {
     }
   }, [showDelayedOnly]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin-matches-teamId', teamId);
+    }
+  }, [teamId]);
+
   // Clear all filters function
   const clearFilters = () => {
     setSeasonId('');
     setLeagueId('');
     setRound('');
+    setTeamId('');
     setShowDelayedOnly(false);
     setPage(1);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('admin-matches-seasonId');
       localStorage.removeItem('admin-matches-leagueId');
       localStorage.removeItem('admin-matches-round');
+      localStorage.removeItem('admin-matches-teamId');
       localStorage.removeItem('admin-matches-delayed');
     }
   };
@@ -103,6 +117,7 @@ export default function AdminMatchesPage() {
         if (leagueId) params.set('leagueId', String(leagueId));
         if (typeof round === 'number') params.set('round', String(round));
         if (showDelayedOnly) params.set('delayedOnly', 'true');
+        if (teamId) params.set('teamId', String(teamId));
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
         const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches?${params.toString()}`;
@@ -118,7 +133,7 @@ export default function AdminMatchesPage() {
       }
     })();
     return () => { mounted = false };
-  }, [seasonId, leagueId, round, page, pageSize, showDelayedOnly]);
+  }, [seasonId, leagueId, round, page, pageSize, showDelayedOnly, teamId]);
 
   // fetch available rounds when league changes
   const [rounds, setRounds] = useState<number[]>([]);
@@ -138,6 +153,29 @@ export default function AdminMatchesPage() {
         }
       } catch {
         if (mounted) setRounds([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, [leagueId]);
+
+  // fetch available teams when league changes
+  const [teams, setTeams] = useState<any[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!leagueId) { setTeams([]); setTeamId(''); return; }
+      try {
+        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/championship/teams/${leagueId}`;
+        const resp = await fetch(url, { credentials: 'include' });
+        if (resp.ok) {
+          const d = await resp.json();
+          const list = Array.isArray(d) ? d : [];
+          if (mounted) setTeams(list);
+        } else {
+          if (mounted) setTeams([]);
+        }
+      } catch {
+        if (mounted) setTeams([]);
       }
     })();
     return () => { mounted = false };
@@ -231,6 +269,7 @@ export default function AdminMatchesPage() {
         if (seasonId) params.set('seasonId', String(seasonId));
         if (leagueId) params.set('leagueId', String(leagueId));
         if (typeof round === 'number') params.set('round', String(round));
+        if (teamId) params.set('teamId', String(teamId));
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
         const url2 = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches?${params.toString()}`;
@@ -292,7 +331,7 @@ export default function AdminMatchesPage() {
                   const s = (seasons || []).find(ss => String(ss.id) === String(seasonId));
                   return { value: String(seasonId), label: s?.name || String(seasonId) } as any;
                 })()}
-                onChange={(opt: any) => { setSeasonId(opt?.value || ''); setLeagueId(''); setRound(''); setPage(1); }}
+                onChange={(opt: any) => { setSeasonId(opt?.value || ''); setLeagueId(''); setRound(''); setTeamId(''); setPage(1); }}
                 styles={selectStyles as any}
               />
             </div>
@@ -305,7 +344,7 @@ export default function AdminMatchesPage() {
                   const l = leaguesForSeason.find((ll: any) => String(ll.id) === String(leagueId));
                   return { value: String(leagueId), label: l?.name || String(leagueId) } as any;
                 })()}
-                onChange={(opt: any) => { setLeagueId(opt?.value || ''); setRound(''); setPage(1); }}
+                onChange={(opt: any) => { setLeagueId(opt?.value || ''); setRound(''); setTeamId(''); setPage(1); }}
                 styles={selectStyles as any}
               />
             </div>
@@ -318,6 +357,19 @@ export default function AdminMatchesPage() {
                   return { value: String(round), label: `Forduló ${round}` } as any;
                 })()}
                 onChange={(opt: any) => { const v = opt?.value; setRound(v ? Number(v) : ''); setPage(1); }}
+                styles={selectStyles as any}
+              />
+            </div>
+            <div className="min-w-[220px]">
+              <Select
+                isDisabled={!leagueId}
+                options={[{ value: '', label: 'Összes Csapat' }, ...teams.map((t: any) => ({ value: String(t.id), label: t.name || String(t.id) }))]}
+                value={(() => {
+                  if (!teamId) return { value: '', label: 'Összes Csapat' } as any;
+                  const t = teams.find((tt: any) => String(tt.id) === String(teamId));
+                  return { value: String(teamId), label: t?.name || String(teamId) } as any;
+                })()}
+                onChange={(opt: any) => { setTeamId(opt?.value || ''); setPage(1); }}
                 styles={selectStyles as any}
               />
             </div>

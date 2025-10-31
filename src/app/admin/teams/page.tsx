@@ -84,7 +84,7 @@ export default function TeamsPage() {
               <FiUsers className="w-6 h-6 text-[#ff5c1a]" />
             </div>
             <div>
-              <p className="text-[#e0e6f7]">Total Players</p>
+              <p className="text-[#e0e6f7]">Összes Játékos</p>
               <p className={`${bebasNeue.className} text-3xl text-white`}>
                  {/* Aggregate unknown without extra calls */}
                  {0}
