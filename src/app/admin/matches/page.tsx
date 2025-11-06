@@ -191,14 +191,15 @@ export default function AdminMatchesPage() {
   const summary = useMemo(() => {
     const apiCounts = data?.counts;
     if (apiCounts) return apiCounts;
-    const total = items.length;
-    const completed = items.filter((r: any) => String(r.match?.matchStatus) === 'completed').length;
-    const pending = items.filter((r: any) => {
+    const itemsList = data?.items || [];
+    const total = itemsList.length;
+    const completed = itemsList.filter((r: any) => String(r.match?.matchStatus) === 'completed').length;
+    const pending = itemsList.filter((r: any) => {
       const s = String(r.match?.matchStatus);
       return s === 'scheduled' || s === 'in_progress';
     }).length;
     return { total, pending, completed };
-  }, [items, data]);
+  }, [data]);
 
   const selectStyles = {
     control: (base: any) => ({

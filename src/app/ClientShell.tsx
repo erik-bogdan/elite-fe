@@ -2,11 +2,14 @@
 
 import TopNav from "./components/TopNav";
 import { useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 function ClientShellContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const pathname = usePathname();
+  const isLiveMatchPage = pathname === '/live-match';
+  
   useEffect(() => {
     const lt = sp.get('lt');
     const fromInvite = sp.get('invite');
@@ -21,7 +24,7 @@ function ClientShellContent({ children }: { children: React.ReactNode }) {
   }, [router, sp]);
   return (
     <>
-      <TopNav />
+      {!isLiveMatchPage && <TopNav />}
       {children}
     </>
   );

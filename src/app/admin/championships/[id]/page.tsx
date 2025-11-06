@@ -861,10 +861,13 @@ export default function ChampionshipView() {
                 <div className="mt-4">
                   <label className="block text-white/80 mb-2">Előnézet:</label>
                   <div className="border border-white/20 rounded-lg overflow-hidden">
-                    <img 
+                    <Image 
                       src={previewImageUrl} 
                       alt="Gameday tabella előnézet" 
+                      width={800}
+                      height={600}
                       className="w-full h-auto max-h-96 object-contain"
+                      unoptimized
                     />
                   </div>
                 </div>

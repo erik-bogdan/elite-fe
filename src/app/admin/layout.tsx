@@ -106,6 +106,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       items: [
         { title: "Összes Bajnokság", href: "/admin/championships" },
         { title: "Meccsek", href: "/admin/matches" },
+        { title: "Élő meccsek", href: "/admin/championships/live-matches" },
       ],
     },
     {

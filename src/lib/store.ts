@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import exampleReducer from "./features/exampleSlice";
 import dataReducer from "./features/apiSlice";
 import menuReducer from "./features/menuSlice";
+import liveMatchReducer from "./features/liveMatchSlice";
 import { apiSlice } from "./features/apiSlice";
 import { championshipApi } from './features/championship/championshipSlice';
 import championshipReducer from './features/championship/championshipSlice';
@@ -14,6 +15,7 @@ export const makeStore = () => {
       data: dataReducer,
       menu: menuReducer,
       championship: championshipReducer,
+      liveMatch: liveMatchReducer,
       [apiSlice.reducerPath]: apiSlice.reducer,
       [championshipApi.reducerPath]: championshipApi.reducer,
       [seasonApi.reducerPath]: seasonApi.reducer,
