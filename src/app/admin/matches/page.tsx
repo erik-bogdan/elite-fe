@@ -51,6 +51,15 @@ export default function AdminMatchesPage() {
   });
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
+  const [playoffFilter, setPlayoffFilter] = useState<'regular' | 'playoff' | 'all'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('admin-matches-playoff');
+      if (stored === 'playoff' || stored === 'all' || stored === 'regular') return stored;
+      if (stored === 'true') return 'playoff';
+      if (stored === 'false') return 'regular';
+    }
+    return 'regular';
+  });
 
   const [data, setData] = useState<{ items: any[]; total: number; page: number; pageSize: number; counts?: { total: number; pending: number; completed: number } } | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -90,12 +99,19 @@ export default function AdminMatchesPage() {
     }
   }, [teamId]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin-matches-playoff', playoffFilter);
+    }
+  }, [playoffFilter]);
+
   // Clear all filters function
   const clearFilters = () => {
     setSeasonId('');
     setLeagueId('');
     setRound('');
     setTeamId('');
+    setPlayoffFilter('regular');
     setShowDelayedOnly(false);
     setPage(1);
     if (typeof window !== 'undefined') {
@@ -104,6 +120,7 @@ export default function AdminMatchesPage() {
       localStorage.removeItem('admin-matches-round');
       localStorage.removeItem('admin-matches-teamId');
       localStorage.removeItem('admin-matches-delayed');
+      localStorage.removeItem('admin-matches-playoff');
     }
   };
 
@@ -120,6 +137,7 @@ export default function AdminMatchesPage() {
         if (teamId) params.set('teamId', String(teamId));
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
+        params.set('playoff', playoffFilter);
         const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches?${params.toString()}`;
         const resp = await fetch(url, { credentials: 'include' });
         if (resp.ok) {
@@ -133,7 +151,7 @@ export default function AdminMatchesPage() {
       }
     })();
     return () => { mounted = false };
-  }, [seasonId, leagueId, round, page, pageSize, showDelayedOnly, teamId]);
+  }, [seasonId, leagueId, round, page, pageSize, showDelayedOnly, teamId, playoffFilter]);
 
   // fetch available rounds when league changes
   const [rounds, setRounds] = useState<number[]>([]);
@@ -374,6 +392,17 @@ export default function AdminMatchesPage() {
                 styles={selectStyles as any}
               />
             </div>
+            <div className="min-w-[150px]">
+              <select
+                value={playoffFilter}
+                onChange={(e) => { setPlayoffFilter(e.target.value as 'regular' | 'playoff' | 'all'); setPage(1); }}
+                className="w-full px-3 py-2 bg-black/40 border border-[#ff5c1a]/30 rounded text-white"
+              >
+                <option value="regular">Csak alapszakasz</option>
+                <option value="playoff">Csak playoff</option>
+                <option value="all">Összes (alap+playoff)</option>
+              </select>
+            </div>
             <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="px-3 py-2 bg-black/40 border border-[#ff5c1a]/30 rounded text-white">
               {[10, 20, 50].map(n => (<option key={n} value={n}>{n}/oldal</option>))}
             </select>
@@ -408,6 +437,7 @@ export default function AdminMatchesPage() {
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Idő</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Forduló</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Játéknap</th>
+              <th className="px-6 py-4 text-left text-[#e0e6f7]">Típus</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Asztal</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Státusz</th>
               <th className="px-6 py-4 text-left text-[#e0e6f7]">Eredmény</th>
@@ -419,9 +449,9 @@ export default function AdminMatchesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={13} className="px-6 py-6 text-white">Betöltés...</td></tr>
+              <tr><td colSpan={15} className="px-6 py-6 text-white">Betöltés...</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={13} className="px-6 py-6 text-white">Nincs találat</td></tr>
+              <tr><td colSpan={15} className="px-6 py-6 text-white">Nincs találat</td></tr>
             ) : (
               items.map((row: any, idx: number) => {
                 const match = row.match;
@@ -471,6 +501,7 @@ export default function AdminMatchesPage() {
                         match.gameDay ?? '-'
                       )}
                     </td>
+                    <td className="px-6 py-4 text-white">{match.isPlayoffMatch ? 'Playoff' : 'Alapszakasz'}</td>
                     <td className="px-6 py-4 text-white">{match.matchTable ?? '-'}</td>
                     <td className="px-6 py-4 text-white">{(() => {
                       const statusMap: Record<string, string> = {

@@ -4,7 +4,7 @@ import { Bebas_Neue } from "next/font/google";
 import { useState, useEffect, use } from 'react';
 import Image from "next/image";
 import Link from "next/link";
-import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery } from '@/lib/features/championship/championshipSlice';
+import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetPlayoffMatchesQuery, useGetPlayoffGroupsQuery } from '@/lib/features/championship/championshipSlice';
 import TopNav from '../../components/TopNav';
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'] });
@@ -13,14 +13,67 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
   const { id: championshipId } = use(params);
   const { data: championship, isLoading } = useGetChampionshipByIdQuery(championshipId);
   const { data: matchesData, isLoading: matchesLoading } = useGetMatchesForLeagueQuery(championshipId, { skip: !championshipId });
+  
+  const hasGroupedPlayoff = Boolean(championship?.properties?.hasPlayoff && championship?.properties?.playoffType === 'groupped');
+  const { data: playoffGroups } = useGetPlayoffGroupsQuery(championshipId, { skip: !championshipId || !hasGroupedPlayoff });
+  const { data: playoffMatchesData } = useGetPlayoffMatchesQuery(championshipId, { skip: !championshipId || !hasGroupedPlayoff });
+  const showPlayoffTab = hasGroupedPlayoff && Boolean(playoffGroups?.enabled && playoffGroups?.ready);
 
   const [selectedGameDay, setSelectedGameDay] = useState<number | 'all'>('all');
   const [selectedRound, setSelectedRound] = useState<number | 'all'>('all');
+  const [matchTab, setMatchTab] = useState<'regular' | 'playoff'>(showPlayoffTab ? 'playoff' : 'regular');
+  
+  // Auto-switch to playoff tab when available
+  useEffect(() => {
+    if (showPlayoffTab && matchTab === 'regular') {
+      setMatchTab('playoff');
+    }
+  }, [showPlayoffTab]);
+  
+  // Normalize playoff matches to match regular match format, keeping upper and lower separate
+  const normalizePlayoffHouseMatches = (matches: any[]) => {
+    return matches.map((m: any) => ({
+      match: {
+        id: m.id,
+        leagueId: championshipId,
+        homeTeamId: m.home?.id,
+        awayTeamId: m.away?.id,
+        homeTeamScore: m.home?.score ?? 0,
+        awayTeamScore: m.away?.score ?? 0,
+        matchAt: m.matchAt,
+        matchDate: m.matchAt,
+        matchTime: m.matchAt,
+        matchStatus: m.status,
+        matchType: 'playoff',
+        isPlayoffMatch: true,
+        matchRound: m.round,
+        gameDay: m.gameDay || 0,
+        matchTable: m.table,
+        isDelayed: false,
+        delayedRound: m.round,
+        delayedGameDay: m.gameDay || 0,
+        delayedDate: m.matchAt,
+        delayedTime: m.matchAt,
+        delayedTable: m.table,
+      },
+      homeTeam: { id: m.home?.id, name: m.home?.name, logo: m.home?.logo },
+      awayTeam: { id: m.away?.id, name: m.away?.name, logo: m.away?.logo },
+    }));
+  };
+  
+  const playoffUpperMatches = playoffMatchesData && Array.isArray(playoffMatchesData.upper) 
+    ? normalizePlayoffHouseMatches(playoffMatchesData.upper) 
+    : [];
+  const playoffLowerMatches = playoffMatchesData && Array.isArray(playoffMatchesData.lower) 
+    ? normalizePlayoffHouseMatches(playoffMatchesData.lower) 
+    : [];
+  
+  const allMatches = matchTab === 'playoff' ? [...playoffUpperMatches, ...playoffLowerMatches] : (matchesData || []);
 
   // Get unique game days and rounds from matches
   // For filter dropdown: show all effective gameDays (delayedGameDay || gameDay) so filtering works correctly
-  const gameDays = matchesData ? 
-    Array.from(new Set(matchesData.map((match: any) => {
+  const gameDays = allMatches ? 
+    Array.from(new Set(allMatches.map((match: any) => {
       const effectiveGameDay = (typeof match.match.delayedGameDay === 'number' && !Number.isNaN(match.match.delayedGameDay))
         ? match.match.delayedGameDay
         : match.match.gameDay;
@@ -28,13 +81,14 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
     }).filter(Boolean)))
       .sort((a: any, b: any) => a - b) : [];
 
-  const rounds = matchesData ? 
-    Array.from(new Set(matchesData.map((match: any) => match.match.matchRound).filter(Boolean)))
+  const rounds = allMatches ? 
+    Array.from(new Set(allMatches.map((match: any) => match.match.matchRound).filter(Boolean)))
       .sort((a: any, b: any) => a - b) : [];
 
   // Filter matches by selected criteria (mutually exclusive)
   // When filtering by gameDay, use effective gameDay (delayedGameDay || gameDay) so delayed matches appear in correct gameday
-  const filteredMatches = (matchesData || []).filter((match: any) => {
+  // For playoff matches, don't filter by game day or round - show all together
+  const filteredMatches = matchTab === 'playoff' ? allMatches : allMatches.filter((match: any) => {
     if (selectedGameDay !== 'all') {
       const effectiveGameDay = (typeof match.match.delayedGameDay === 'number' && !Number.isNaN(match.match.delayedGameDay))
         ? match.match.delayedGameDay
@@ -51,7 +105,26 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
   });
 
   // Group matches by effective game day and round (using delayedGameDay/delayedRound if available)
-  const matchesByGameDay = filteredMatches.reduce((acc: any, match: any) => {
+  // For playoff matches, group by upper/lower house, sorted by date
+  const matchesByGameDay = matchTab === 'playoff' ? (() => {
+    // Sort each house by date
+    const sortByDate = (matches: any[]) => {
+      return [...matches].sort((a: any, b: any) => {
+        const dateA = a.match.matchAt ? new Date(a.match.matchAt).getTime() : 0;
+        const dateB = b.match.matchAt ? new Date(b.match.matchAt).getTime() : 0;
+        return dateA - dateB;
+      });
+    };
+    
+    const grouped: any = {};
+    if (playoffUpperMatches.length > 0) {
+      grouped['Felső ház'] = { 'Összes': sortByDate(playoffUpperMatches) };
+    }
+    if (playoffLowerMatches.length > 0) {
+      grouped['Alsó ház'] = { 'Összes': sortByDate(playoffLowerMatches) };
+    }
+    return grouped;
+  })() : filteredMatches.reduce((acc: any, match: any) => {
     const isDelayed = match.match.isDelayed || false;
     const effectiveGameDay = (typeof match.match.delayedGameDay === 'number' && !Number.isNaN(match.match.delayedGameDay)) 
       ? match.match.delayedGameDay 
@@ -77,7 +150,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'UTC'
+      timeZone: 'Europe/Budapest'
     });
   };
 
@@ -145,11 +218,34 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
         {/* Content Section - Centered */}
         <div className="max-w-6xl mx-auto px-2 sm:px-4">
           <div className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-4 sm:p-6 md:p-8">
-            <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl md:text-3xl mb-4 sm:mb-6`}>
-              Mérkőzések
-            </h2>
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl md:text-3xl`}>
+                Mérkőzések
+              </h2>
+              {showPlayoffTab && (
+                <div className="flex space-x-2 bg-black/40 rounded-lg p-1 border border-[#FFDB11]/30">
+                  <button
+                    onClick={() => setMatchTab('regular')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      matchTab === 'regular' ? 'bg-[#FFDB11] text-black' : 'bg-transparent text-white/70 hover:bg-black/60'
+                    }`}
+                  >
+                    Alapszakasz
+                  </button>
+                  <button
+                    onClick={() => setMatchTab('playoff')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      matchTab === 'playoff' ? 'bg-[#FFDB11] text-black' : 'bg-transparent text-white/70 hover:bg-black/60'
+                    }`}
+                  >
+                    Playoff
+                  </button>
+                </div>
+              )}
+            </div>
 
-            {/* Filters */}
+            {/* Filters - only show for regular matches */}
+          {matchTab === 'regular' && (
           <div className="mb-6 sm:mb-8">
             <div className="flex flex-col gap-3 sm:gap-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full">
@@ -193,21 +289,30 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
           </div>
+          )}
 
           {/* Matches by Game Day and Round */}
           <div className="space-y-6 sm:space-y-8">
             {Object.entries(matchesByGameDay).map(([gameDay, roundsData]: [string, any]) => (
               <div key={gameDay} className="bg-gradient-to-br from-gray-900/50 to-black/50 border border-white/10 rounded-2xl p-4 sm:p-6">
-                <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl mb-4 sm:mb-6`}>
-                  Játéknap {gameDay}
-                </h2>
+                {matchTab === 'regular' ? (
+                  <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl mb-4 sm:mb-6`}>
+                    Játéknap {gameDay}
+                  </h2>
+                ) : (
+                  <h2 className={`${bebasNeue.className} text-[#FFDB11] text-xl sm:text-2xl mb-4 sm:mb-6`}>
+                    {gameDay}
+                  </h2>
+                )}
                 
                 <div className="space-y-4 sm:space-y-6">
                   {Object.entries(roundsData).map(([round, matches]: [string, any]) => (
                     <div key={round} className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/5">
-                      <h3 className={`${bebasNeue.className} text-white text-base sm:text-lg mb-3 sm:mb-4`}>
-                        Forduló {round}
-                      </h3>
+                      {matchTab === 'regular' && (
+                        <h3 className={`${bebasNeue.className} text-white text-base sm:text-lg mb-3 sm:mb-4`}>
+                          Forduló {round}
+                        </h3>
+                      )}
                       
                       <div className="space-y-3 sm:space-y-4">
                         {(matches as any[]).map((match: any) => {
@@ -251,9 +356,9 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
                                 </div>
                               )}
                               
-                              <div className="flex items-center justify-between">
-                                <Link href={`/csapat/${match.match.homeTeamId}`} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity">
-                                  <div className="flex-shrink-0 w-6 h-6 relative">
+                              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
+                                <Link href={`/csapat/${match.match.homeTeamId}`} className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity w-full sm:w-auto">
+                                  <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 relative">
                                     {match.homeTeam?.logo ? (
                                       <Image
                                         src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.homeTeam.logo}`}
@@ -262,27 +367,27 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
                                         className="object-contain"
                                       />
                                     ) : (
-                                      <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                                      <div className="w-8 h-8 sm:w-6 sm:h-6 bg-white/20 rounded-full flex items-center justify-center">
                                         <span className="text-xs text-white">?</span>
                                       </div>
                                     )}
                                   </div>
-                                  <span className="text-white text-sm font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</span>
+                                  <span className="text-white text-sm sm:text-sm font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</span>
                                 </Link>
                                 
-                                <div className="flex items-center gap-3 px-4">
+                                <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 flex-shrink-0">
                                   {showScore && (
-                                    <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.homeTeamScore}</span>
+                                    <span className="text-[#ff5c1a] text-base sm:text-lg font-bold bg-[#ff5c1a]/10 px-2 sm:px-3 py-1 rounded">{match.match.homeTeamScore}</span>
                                   )}
                                   <span className="text-white/50 text-xs">VS</span>
                                   {showScore && (
-                                    <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.awayTeamScore}</span>
+                                    <span className="text-[#ff5c1a] text-base sm:text-lg font-bold bg-[#ff5c1a]/10 px-2 sm:px-3 py-1 rounded">{match.match.awayTeamScore}</span>
                                   )}
                                 </div>
                                 
-                                <Link href={`/csapat/${match.match.awayTeamId}`} className="flex items-center gap-3 flex-1 min-w-0 justify-end hover:opacity-80 transition-opacity">
-                                  <span className="text-white text-sm font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</span>
-                                  <div className="flex-shrink-0 w-6 h-6 relative">
+                                <Link href={`/csapat/${match.match.awayTeamId}`} className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 justify-end sm:justify-end hover:opacity-80 transition-opacity w-full sm:w-auto">
+                                  <span className="text-white text-sm sm:text-sm font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</span>
+                                  <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 relative">
                                     {match.awayTeam?.logo ? (
                                       <Image
                                         src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.awayTeam.logo}`}
@@ -291,7 +396,7 @@ export default function MatchesPage({ params }: { params: Promise<{ id: string }
                                         className="object-contain"
                                       />
                                     ) : (
-                                      <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                                      <div className="w-8 h-8 sm:w-6 sm:h-6 bg-white/20 rounded-full flex items-center justify-center">
                                         <span className="text-xs text-white">?</span>
                                       </div>
                                     )}

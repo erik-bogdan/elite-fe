@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Bebas_Neue } from 'next/font/google';
 import { FiChevronDown, FiChevronUp, FiBarChart, FiUsers, FiCalendar, FiClock, FiExternalLink, FiCheckCircle } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import { useGetMyLeagueQuery } from '@/lib/features/apiSlice';
-import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation } from '@/lib/features/championship/championshipSlice';
+import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetPlayoffMatchesQuery, useGetPlayoffGroupsQuery } from '@/lib/features/championship/championshipSlice';
 import GameStatsGrid from '@/components/GameStatsGrid';
 import EnterResultModal from '@/app/components/EnterResultModal';
 import { buildRoundsFromHistory, GameAction as HistAction } from '@/lib/tracking/rounds';
@@ -20,6 +20,18 @@ export default function MyMatchesPage() {
   const myTeamId = my?.teamId;
   const { data: championship } = useGetChampionshipByIdQuery(leagueId!, { skip: !leagueId });
   const { data: leagueMatches, refetch: refetchMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
+  const hasGroupedPlayoff = Boolean(championship?.properties?.hasPlayoff && championship?.properties?.playoffType === 'groupped');
+  const { data: playoffGroups } = useGetPlayoffGroupsQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
+  const { data: playoffMatchesData } = useGetPlayoffMatchesQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
+  const showPlayoffTab = hasGroupedPlayoff && Boolean(playoffGroups?.enabled && playoffGroups?.ready);
+  const [matchTab, setMatchTab] = useState<'regular' | 'playoff'>(showPlayoffTab ? 'playoff' : 'regular');
+
+  // Auto-switch to playoff tab when it becomes available
+  useEffect(() => {
+    if (showPlayoffTab && matchTab === 'regular') {
+      setMatchTab('playoff');
+    }
+  }, [showPlayoffTab]);
 
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -35,6 +47,57 @@ export default function MyMatchesPage() {
     const all = Array.isArray(leagueMatches) ? leagueMatches : [];
     return all.filter((row: any) => row?.match && (row.match.homeTeamId === myTeamId || row.match.awayTeamId === myTeamId));
   }, [leagueMatches, myTeamId]);
+
+  const myPlayoffMatches = useMemo(() => {
+    if (!playoffMatchesData || !myTeamId) return [];
+    const all = [...(playoffMatchesData.upper || []), ...(playoffMatchesData.lower || [])];
+    return all.filter((m: any) => m.home?.id === myTeamId || m.away?.id === myTeamId);
+  }, [playoffMatchesData, myTeamId]);
+
+  const processedPlayoffMatches = useMemo(() => {
+    return myPlayoffMatches.map((m: any) => {
+      const matchDate = m.matchAt ? new Date(m.matchAt).toLocaleDateString('hu-HU', { timeZone: 'UTC' }) : '';
+      const matchTime = m.matchAt ? new Date(m.matchAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : '';
+      
+      return {
+        id: m.id,
+        date: matchDate,
+        time: matchTime,
+        matchAt: m.matchAt, // Keep original matchAt for sorting
+        table: m.table,
+        round: m.round,
+        gameDay: m.gameDay || 0,
+        originalGameDay: m.gameDay || 0,
+        delayedGameDay: undefined,
+        isDelayed: false,
+        originalDate: matchDate,
+        originalTime: matchTime,
+        originalTable: m.table,
+        originalRound: m.round,
+        delayedDate: undefined,
+        delayedTime: undefined,
+        delayedTable: undefined,
+        delayedRound: undefined,
+        homeTeam: {
+          name: m.home?.name || 'Home Team',
+          logo: m.home?.logo || '/elitelogo.png',
+          score: m.home?.score || 0,
+          players: [],
+          isMyTeam: m.home?.id === myTeamId
+        },
+        awayTeam: {
+          name: m.away?.name || 'Away Team',
+          logo: m.away?.logo || '/elitelogo.png',
+          score: m.away?.score || 0,
+          players: [],
+          isMyTeam: m.away?.id === myTeamId
+        },
+        status: m.status || 'scheduled',
+        trackingData: {},
+        hasTrackingData: false
+      };
+    });
+  }, [myPlayoffMatches, myTeamId]);
 
   const processedMatches = useMemo(() => {
     return myMatches.map((row: any) => {
@@ -124,8 +187,26 @@ export default function MyMatchesPage() {
     });
   }, [myMatches, myTeamId]);
 
+  const activeMatches = useMemo(() => {
+    return matchTab === 'playoff' ? processedPlayoffMatches : processedMatches;
+  }, [matchTab, processedMatches, processedPlayoffMatches]);
+
   const matchesByGameDay = useMemo(() => {
-    const grouped = processedMatches.reduce((acc: Record<number, any[]>, match) => {
+    // For playoff matches, don't group by game day - show all matches together
+    if (matchTab === 'playoff') {
+      const sorted = [...activeMatches].sort((a: any, b: any) => {
+        const dateA = a.matchAt ? new Date(a.matchAt).getTime() : (a.date && a.time ? new Date(`${a.date} ${a.time}`).getTime() : 0);
+        const dateB = b.matchAt ? new Date(b.matchAt).getTime() : (b.date && b.time ? new Date(`${b.date} ${b.time}`).getTime() : 0);
+        return dateA - dateB;
+      });
+      return [{
+        gameDay: 0,
+        matches: sorted
+      }];
+    }
+
+    // For regular matches, group by game day
+    const grouped = activeMatches.reduce((acc: Record<number, any[]>, match) => {
       const gameDay = match.gameDay;
       if (!acc[gameDay]) {
         acc[gameDay] = [];
@@ -141,7 +222,7 @@ export default function MyMatchesPage() {
         gameDay: Number(gameDay),
         matches: (matches as any[]).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
       }));
-  }, [processedMatches]);
+  }, [activeMatches, matchTab]);
 
   const toggleMatchExpansion = (matchId: string) => {
     const newExpanded = new Set(expandedMatches);
@@ -206,23 +287,49 @@ export default function MyMatchesPage() {
           </h1>
           <div className="flex items-center justify-center space-x-4 text-[#ff5c1a]">
             <span className="text-sm">•</span>
-            <span className="text-sm">{processedMatches.length} meccs</span>
+            <span className="text-sm">{activeMatches.length} meccs</span>
             <span className="text-sm">•</span>
             <span className="text-sm">{championship?.name || 'Szezon'}</span>
           </div>
         </div>
 
+        {/* Tab Switcher */}
+        {showPlayoffTab && (
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex space-x-2 bg-black/40 rounded-lg p-1 border border-[#ff5c1a]/30">
+              <button
+                onClick={() => setMatchTab('regular')}
+                className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  matchTab === 'regular' ? 'bg-[#ff5c1a] text-white' : 'bg-transparent text-white/70 hover:bg-black/60'
+                }`}
+              >
+                Alapszakasz
+              </button>
+              <button
+                onClick={() => setMatchTab('playoff')}
+                className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  matchTab === 'playoff' ? 'bg-[#ff5c1a] text-white' : 'bg-transparent text-white/70 hover:bg-black/60'
+                }`}
+              >
+                Playoff
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Matches by Game Day */}
         <div className="space-y-8">
           {matchesByGameDay.map((gameDayGroup) => (
             <div key={gameDayGroup.gameDay}>
-              {/* Game Day Header */}
-              <div className="text-center mb-6">
-                <h2 className={`${bebasNeue.className} text-3xl md:text-4xl text-white mb-2 tracking-wider`}>
-                  {gameDayGroup.gameDay === 0 ? 'FINÁLE' : `${gameDayGroup.gameDay}. JÁTÉKNAP`}
-                </h2>
-                <div className="w-24 h-1 bg-gradient-to-r from-[#ff5c1a] to-[#e54d1a] mx-auto rounded-full"></div>
-              </div>
+              {/* Game Day Header - only show for regular matches */}
+              {matchTab === 'regular' && (
+                <div className="text-center mb-6">
+                  <h2 className={`${bebasNeue.className} text-3xl md:text-4xl text-white mb-2 tracking-wider`}>
+                    {gameDayGroup.gameDay === 0 ? 'FINÁLE' : `${gameDayGroup.gameDay}. JÁTÉKNAP`}
+                  </h2>
+                  <div className="w-24 h-1 bg-gradient-to-r from-[#ff5c1a] to-[#e54d1a] mx-auto rounded-full"></div>
+                </div>
+              )}
 
               {/* Matches Grid for this Game Day */}
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -436,7 +543,7 @@ export default function MyMatchesPage() {
         </div>
 
         {/* Empty State */}
-        {processedMatches.length === 0 && (
+        {activeMatches.length === 0 && (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🏓</div>
             <h2 className="text-2xl text-white font-semibold mb-2">Nincsenek meccsek</h2>

@@ -12,6 +12,7 @@ export interface ChampionshipProperties {
   type: 'league' | 'tournament';
   rounds: number;
   hasPlayoff: boolean;
+  playoffType?: 'groupped' | 'knockout' | string;
   teams: number;
   gameDays?: ChampionshipGameDay[];
   elimination?: number;
@@ -68,6 +69,38 @@ export interface Championship {
   }[];
   winner?: string;
   matchDays?: MatchDay[];
+}
+
+export interface PlayoffHouseGroup {
+  label: 'upper' | 'lower';
+  name: string;
+  teamIds: string[];
+  standings: any[];
+}
+
+export interface PlayoffGroupsResponse {
+  enabled: boolean;
+  ready: boolean;
+  totalTeams: number;
+  upper: PlayoffHouseGroup | null;
+  lower: PlayoffHouseGroup | null;
+}
+
+export interface PlayoffHouseMatch {
+  id: string;
+  round: number;
+  gameDay: number;
+  table: number;
+  status: string;
+  matchAt: string;
+  home: { id: string; name: string; logo?: string | null; score: number };
+  away: { id: string; name: string; logo?: string | null; score: number };
+}
+
+export interface PlayoffMatchesResponse {
+  enabled: boolean;
+  upper: PlayoffHouseMatch[];
+  lower: PlayoffHouseMatch[];
 }
 
 export interface CreateChampionshipRequest {
@@ -277,6 +310,35 @@ export const championshipApi = createApi({
       query: (id) => `/championship/${id}/mvps`,
       providesTags: ['Championship']
     }),
+    getPlayoffGroups: builder.query<PlayoffGroupsResponse, string>({
+      query: (id) => `/championship/${id}/playoff/groups`,
+      providesTags: ['Championship']
+    }),
+    previewPlayoffGroupsSchedule: builder.mutation<
+      { schedule: any[]; totalDays: number },
+      { id: string; startTime: string; matchDuration: number; tables: number; gameDayDate?: string }
+    >({
+      query: ({ id, ...payload }) => ({
+        url: `/championship/${id}/playoff/generate-schedule`,
+        method: 'POST',
+        body: payload,
+      }),
+    }),
+    savePlayoffGroupsSchedule: builder.mutation<
+      { success: boolean; saved: number },
+      { id: string; schedule: any[] }
+    >({
+      query: ({ id, schedule }) => ({
+        url: `/championship/${id}/playoff/save-schedule`,
+        method: 'POST',
+        body: { schedule },
+      }),
+      invalidatesTags: ['Championship'],
+    }),
+    getPlayoffMatches: builder.query<PlayoffMatchesResponse, string>({
+      query: (id) => `/championship/${id}/playoff/matches`,
+      providesTags: ['Championship'],
+    }),
     getRankSeries: builder.query<{ series: { round: number; rank: number | null }[] }, { id: string; teamId: string }>({
       query: ({ id, teamId }) => `/championship/${id}/rank-series/${teamId}`,
       providesTags: ['Championship']
@@ -334,6 +396,10 @@ export const {
   useGetStandingsUptoRoundQuery,
   useGetStandingsByGameDayQuery,
   useGetGameDayMvpsQuery,
+  useGetPlayoffGroupsQuery,
+  usePreviewPlayoffGroupsScheduleMutation,
+  useSavePlayoffGroupsScheduleMutation,
+  useGetPlayoffMatchesQuery,
   useGetRankSeriesQuery,
 } = championshipApi;
 

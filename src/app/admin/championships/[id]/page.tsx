@@ -9,12 +9,13 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from 'sonner';
-import { useGetAvailableTeamsForLeagueQuery, useGetChampionshipByIdQuery, useGetLeagueTeamsQuery, useAddTeamToLeagueMutation, useRemoveTeamFromLeagueMutation, useSendInviteForLeagueTeamMutation, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetStandingsByGameDayQuery, useGetGameDayMvpsQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery } from "@/lib/features/championship/championshipSlice";
+import { useGetAvailableTeamsForLeagueQuery, useGetChampionshipByIdQuery, useGetLeagueTeamsQuery, useAddTeamToLeagueMutation, useRemoveTeamFromLeagueMutation, useSendInviteForLeagueTeamMutation, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetStandingsByGameDayQuery, useGetGameDayMvpsQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetPlayoffGroupsQuery, useGetPlayoffMatchesQuery } from "@/lib/features/championship/championshipSlice";
 import RankModal from "./RankModal";
 import * as Tooltip from '@radix-ui/react-tooltip';
 import TeamAssignModal from "./TeamAssignModal";
 import StartModal from "./StartModal";
 import ScriptModal from "./ScriptModal";
+import GroupedPlayoffModal from "./GroupedPlayoffModal";
 import ActionMenu from "../../teams/ActionMenu";
 
 const bebasNeue = Bebas_Neue({
@@ -123,12 +124,19 @@ export default function ChampionshipView() {
   const [removeTeam] = useRemoveTeamFromLeagueMutation();
   const [sendInvite] = useSendInviteForLeagueTeamMutation();
   const { data: leagueMatches, refetch: refetchMatches } = useGetMatchesForLeagueQuery(championshipId!, { skip: !championshipId });
+  const playoffProperties = (championship as any)?.properties;
+  const hasGroupedPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'groupped');
+  const { data: playoffGroups } = useGetPlayoffGroupsQuery(championshipId!, { skip: !championshipId || !hasGroupedPlayoff });
+  const { data: playoffMatches } = useGetPlayoffMatchesQuery(championshipId!, { skip: !championshipId || !hasGroupedPlayoff });
+  const playoffScheduled = Boolean((playoffMatches?.upper?.length || 0) + (playoffMatches?.lower?.length || 0));
   const [expandedMatchDays, setExpandedMatchDays] = useState<number[]>([]);
   const [expandedMatches, setExpandedMatches] = useState<string[]>([]);
   const [expandedRounds, setExpandedRounds] = useState<string[]>([]);
+  const [expandedHouseMatches, setExpandedHouseMatches] = useState<string[]>([]);
   const [isTeamModalOpen, setTeamModalOpen] = useState(false);
   const [isStartModalOpen, setStartModalOpen] = useState(false);
   const [isScriptModalOpen, setScriptModalOpen] = useState(false);
+  const [isGroupedModalOpen, setGroupedModalOpen] = useState(false);
   const [isExportImageOpen, setExportImageOpen] = useState(false);
   const [exportGameday, setExportGameday] = useState<number | 'latest'>("latest" as any);
   const [playersForExport, setPlayersForExport] = useState<Array<{ id: string; label: string }>>([]);
@@ -179,6 +187,154 @@ export default function ChampionshipView() {
 
   const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
   const abs = (p?: string | null) => p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '';
+  const shouldShowPlayoffTables = Boolean(
+    hasGroupedPlayoff &&
+    playoffGroups?.enabled &&
+    playoffGroups?.ready &&
+    (
+      (playoffGroups?.upper?.standings?.length || 0) > 0 ||
+      (playoffGroups?.lower?.standings?.length || 0) > 0
+    )
+  );
+
+  const renderHouseTable = (title: string, rows?: any[] | null, startRank: number = 1) => {
+    if (!rows || rows.length === 0) return null;
+    return (
+      <div className="bg-[#001a3a]/60 rounded-xl p-6 border border-[#ff5c1a]/30">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className={`${bebasNeue.className} text-2xl text-white`}>{title}</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-[#ff5c1a]/30">
+            <thead>
+              <tr className="text-left text-white">
+                <th className="py-3 pr-4">#</th>
+                <th className="py-3 pr-4">Csapat</th>
+                <th className="py-3 pr-4">Meccs</th>
+                <th className="py-3 pr-4">GY</th>
+                <th className="py-3 pr-4">V</th>
+                <th className="py-3 pr-4">Győzelem</th>
+                <th className="py-3 pr-4">Győzelem (h)</th>
+                <th className="py-3 pr-4">Vereség (h)</th>
+                <th className="py-3 pr-4">Vereség</th>
+                <th className="py-3 pr-4">PK</th>
+                <th className="py-3 pr-4">Pont</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#ff5c1a]/20">
+              {rows.map((s: any, idx: number) => (
+                <tr key={s.teamId} className="text-white">
+                  <td className="py-2 pr-4">{(typeof startRank === 'number' ? startRank + idx : s.rank)}</td>
+                  <td className="py-2 pr-4 flex items-center gap-2">
+                    <Image src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/admin/teams/${s.teamId}/view`)}
+                      className="underline-offset-2 hover:underline cursor-pointer"
+                      title="Csapat megnyitása"
+                    >
+                      {s.name}
+                    </button>
+                  </td>
+                  <td className="py-2 pr-4">{s.games ?? 0}</td>
+                  <td className="py-2 pr-4">{s.winsTotal ?? 0}</td>
+                  <td className="py-2 pr-4">{s.lossesTotal ?? 0}</td>
+                  <td className="py-2 pr-4">{s.winsRegular ?? 0}</td>
+                  <td className="py-2 pr-4">{s.winsOT ?? 0}</td>
+                  <td className="py-2 pr-4">{s.lossesOT ?? 0}</td>
+                  <td className="py-2 pr-4">{s.lossesRegular ?? 0}</td>
+                  <td className="py-2 pr-4">{s.cupDiff ?? 0}</td>
+                  <td className="py-2 pr-4">{s.points ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderHouseMatches = (title: string, items?: any[] | null) => {
+    const key = title.toLowerCase().includes('felső') ? 'upper' : 'lower';
+    const isOpen = expandedHouseMatches.includes(key);
+    return (
+      <div className="bg-[#001a3a]/60 border border-[#ff5c1a]/20 rounded-2xl p-5">
+        <button
+          onClick={() =>
+            setExpandedHouseMatches((prev) =>
+              prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+            )
+          }
+          className="flex items-center justify-between w-full mb-4"
+        >
+          <div>
+            <h4 className={`${bebasNeue.className} text-xl text-white`}>{title}</h4>
+            <span className="text-white/70 text-sm">
+              {items?.length ? `${items.length} meccs` : 'Nincs meccs'}
+            </span>
+          </div>
+          {isOpen ? <FiChevronUp className="w-6 h-6 text-[#ff5c1a]" /> : <FiChevronDown className="w-6 h-6 text-[#ff5c1a]" />}
+        </button>
+        {!isOpen ? null : (
+          <>
+            {(!items || items.length === 0) && (
+              <div className="text-white/60 text-sm">Nincs playoff meccs ebben a házban.</div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(items || []).map((match: any) => {
+                const start = match.matchAt ? new Date(match.matchAt) : null;
+                const dateLabel = start ? start.toLocaleDateString('hu-HU') : '';
+                const timeLabel = start ? start.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' }) : '';
+                const isCompleted = match.status === 'completed';
+                const statusLabel = isCompleted ? 'LEJÁTSZVA' : match.status === 'scheduled' ? 'ÜTEMEZVE' : match.status?.toUpperCase();
+                return (
+                  <div
+                    key={match.id}
+                    className="rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top,#09204c,#010a1c)] p-4 shadow-[0_10px_25px_rgba(0,0,0,0.35)]"
+                  >
+                    <div className="flex items-center justify-between text-white/70 text-xs mb-3">
+                      <span>Időkör {match.gameDay ?? '-'}</span>
+                      <span>Asztal {match.table ?? '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Image src={abs(match.home?.logo) || '/elitelogo.png'} alt={match.home?.name || ''} width={28} height={28} className="rounded-full border border-white/10" />
+                        <span className="text-white font-semibold truncate">{match.home?.name}</span>
+                      </div>
+                      <div className={`${bebasNeue.className} text-2xl text-white`}>
+                        {isCompleted ? (
+                          <>
+                            <span>{match.home?.score ?? 0}</span>
+                            <span className="text-white/60 mx-1">-</span>
+                            <span>{match.away?.score ?? 0}</span>
+                          </>
+                        ) : (
+                          <span className="text-white/60 text-base">vs</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 min-w-0 justify-end">
+                        <span className="text-white font-semibold truncate text-right">{match.away?.name}</span>
+                        <Image src={abs(match.away?.logo) || '/elitelogo.png'} alt={match.away?.name || ''} width={28} height={28} className="rounded-full border border-white/10" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-white/70">
+                      <div>
+                        <div>{dateLabel}</div>
+                        <div>{timeLabel}</div>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full border text-[10px] tracking-wide ${isCompleted ? 'border-green-400 text-green-300' : 'border-orange-300 text-orange-200'}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   const toggleMatchDay = (matchDayId: number) => {
     setExpandedMatchDays(prev =>
@@ -463,6 +619,28 @@ export default function ChampionshipView() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {shouldShowPlayoffTables && (
+        <div className="space-y-6 mb-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h3 className={`${bebasNeue.className} text-2xl text-white`}>
+              Playoff házak
+            </h3>
+            {!playoffScheduled && (
+              <button
+                onClick={() => setGroupedModalOpen(true)}
+                className="px-4 py-2 rounded bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white transition-colors"
+              >
+                Playoff sorsolás
+              </button>
+            )}
+          </div>
+          {renderHouseTable('Felső ház tabella', playoffGroups?.upper?.standings, 1)}
+          {renderHouseMatches('Felső ház meccsei', playoffMatches?.upper)}
+          {renderHouseTable('Alsó ház tabella', playoffGroups?.lower?.standings, (playoffGroups?.upper?.standings?.length || 0) + 1)}
+          {renderHouseMatches('Alsó ház meccsei', playoffMatches?.lower)}
         </div>
       )}
 
@@ -753,6 +931,12 @@ export default function ChampionshipView() {
         onClose={() => setScriptModalOpen(false)} 
         leagueMatches={leagueMatches || []}
         championship={championship}
+      />
+      <GroupedPlayoffModal
+        leagueId={championshipId!}
+        isOpen={isGroupedModalOpen}
+        onClose={() => setGroupedModalOpen(false)}
+        playoffGroups={playoffGroups}
       />
 
       {/* Export Image Modal */}

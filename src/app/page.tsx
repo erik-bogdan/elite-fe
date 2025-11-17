@@ -7,10 +7,10 @@ import HeaderSection from "./sections/HeaderSection";
 import { motion, useViewportScroll, useTransform, AnimatePresence } from 'framer-motion';
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ChampionModal from '../components/ChampionModal';
-import { useGetChampionshipsQuery, useGetLeagueTeamsQuery, useGetStandingsQuery, useGetMatchesForLeagueQuery } from '../lib/features/championship/championshipSlice';
+import { useGetChampionshipsQuery, useGetLeagueTeamsQuery, useGetStandingsQuery, useGetMatchesForLeagueQuery, useGetPlayoffGroupsQuery, useGetPlayoffMatchesQuery } from '../lib/features/championship/championshipSlice';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import * as Tooltip from '@radix-ui/react-tooltip';
 const bebasNeue = Bebas_Neue({
@@ -249,6 +249,8 @@ function ChampionshipTables() {
   const { data: championships, isLoading: championshipsLoading } = useGetChampionshipsQuery();
   const [elite1Championship, setElite1Championship] = useState<any>(null);
   const [elite2Championship, setElite2Championship] = useState<any>(null);
+  const [elite1Tab, setElite1Tab] = useState<'regular' | 'playoff'>('regular');
+  const [elite2Tab, setElite2Tab] = useState<'regular' | 'playoff'>('regular');
 
   // Find ELITE1 and ELITE2 championships
   useEffect(() => {
@@ -264,6 +266,28 @@ function ChampionshipTables() {
   // Get standings for each championship
   const { data: elite1Standings, isLoading: elite1Loading } = useGetStandingsQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id });
   const { data: elite2Standings, isLoading: elite2Loading } = useGetStandingsQuery(elite2Championship?.id || '', { skip: !elite2Championship?.id });
+  
+  // Get playoff groups
+  const elite1HasPlayoff = Boolean(elite1Championship?.properties?.hasPlayoff && elite1Championship?.properties?.playoffType === 'groupped');
+  const elite2HasPlayoff = Boolean(elite2Championship?.properties?.hasPlayoff && elite2Championship?.properties?.playoffType === 'groupped');
+  const { data: elite1PlayoffGroups } = useGetPlayoffGroupsQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id || !elite1HasPlayoff });
+  const { data: elite2PlayoffGroups } = useGetPlayoffGroupsQuery(elite2Championship?.id || '', { skip: !elite2Championship?.id || !elite2HasPlayoff });
+  
+  const elite1ShowPlayoff = elite1HasPlayoff && Boolean(elite1PlayoffGroups?.enabled && elite1PlayoffGroups?.ready);
+  const elite2ShowPlayoff = elite2HasPlayoff && Boolean(elite2PlayoffGroups?.enabled && elite2PlayoffGroups?.ready);
+  
+  // Auto-switch to playoff tab when available
+  useEffect(() => {
+    if (elite1ShowPlayoff && elite1Tab === 'regular') {
+      setElite1Tab('playoff');
+    }
+  }, [elite1ShowPlayoff]);
+  
+  useEffect(() => {
+    if (elite2ShowPlayoff && elite2Tab === 'regular') {
+      setElite2Tab('playoff');
+    }
+  }, [elite2ShowPlayoff]);
 
   if (championshipsLoading) {
     return (
@@ -272,6 +296,53 @@ function ChampionshipTables() {
       </div>
     );
   }
+
+  // Helper function to render playoff tables
+  const renderPlayoffTables = (playoffGroups: any, color: string) => {
+    if (!playoffGroups || (!playoffGroups.upper && !playoffGroups.lower)) {
+      return (
+        <div className="text-center py-8 md:py-12">
+          <div className="text-white/70 text-xs sm:text-sm md:text-base">
+            Még nem elérhető a playoff tabella.
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {playoffGroups.upper && playoffGroups.upper.standings && playoffGroups.upper.standings.length > 0 && (
+          <div>
+            <h4 className={`${bebasNeue.className} text-[${color}] text-lg sm:text-xl mb-4`}>
+              Felső ház
+            </h4>
+            <ChampionshipTable 
+              standings={playoffGroups.upper.standings}
+              loading={false}
+              title="Felső ház"
+              color={color}
+            />
+          </div>
+        )}
+        {playoffGroups.lower && playoffGroups.lower.standings && playoffGroups.lower.standings.length > 0 && (
+          <div>
+            <h4 className={`${bebasNeue.className} text-[${color}] text-lg sm:text-xl mb-4`}>
+              Alsó ház
+            </h4>
+            <ChampionshipTable 
+              standings={playoffGroups.lower.standings.map((s: any, idx: number) => ({
+                ...s,
+                rank: (playoffGroups.upper?.standings?.length || 0) + idx + 1
+              }))}
+              loading={false}
+              title="Alsó ház"
+              color={color}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // Custom table component for championship standings with logos
   const ChampionshipTable = ({ standings, loading, title, color, subName }: { 
@@ -456,13 +527,41 @@ function ChampionshipTables() {
             </p>
           </div>
 
-          <ChampionshipTable 
-            standings={elite1Standings?.standings || []}
-            loading={elite1Loading}
-            title="ELITE 1"
-            color="#FFDB11"
-            subName={elite1Championship?.subName}
-          />
+          {/* Tab Switcher */}
+          {elite1ShowPlayoff && (
+            <div className="flex items-center justify-center mb-6">
+              <div className="flex space-x-2 bg-black/40 rounded-lg p-1 border border-[#FFDB11]/30">
+                <button
+                  onClick={() => setElite1Tab('regular')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    elite1Tab === 'regular' ? 'bg-[#FFDB11] text-black' : 'bg-transparent text-white/70 hover:bg-black/60'
+                  }`}
+                >
+                  Alapszakasz
+                </button>
+                <button
+                  onClick={() => setElite1Tab('playoff')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    elite1Tab === 'playoff' ? 'bg-[#FFDB11] text-black' : 'bg-transparent text-white/70 hover:bg-black/60'
+                  }`}
+                >
+                  Playoff
+                </button>
+              </div>
+            </div>
+          )}
+
+          {elite1Tab === 'regular' ? (
+            <ChampionshipTable 
+              standings={elite1Standings?.standings || []}
+              loading={elite1Loading}
+              title="ELITE 1"
+              color="#FFDB11"
+              subName={elite1Championship?.subName}
+            />
+          ) : (
+            renderPlayoffTables(elite1PlayoffGroups, '#FFDB11')
+          )}
           
           {/* Detailed Table Button */}
           {elite1Championship && (
@@ -494,13 +593,41 @@ function ChampionshipTables() {
             </p>
           </div>
 
-          <ChampionshipTable 
-            standings={elite2Standings?.standings || []}
-            loading={elite2Loading}
-            title="ELITE 2"
-            color="#ff5c1a"
-            subName={elite2Championship?.subName}
-          />
+          {/* Tab Switcher */}
+          {elite2ShowPlayoff && (
+            <div className="flex items-center justify-center mb-6">
+              <div className="flex space-x-2 bg-black/40 rounded-lg p-1 border border-[#ff5c1a]/30">
+                <button
+                  onClick={() => setElite2Tab('regular')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    elite2Tab === 'regular' ? 'bg-[#ff5c1a] text-white' : 'bg-transparent text-white/70 hover:bg-black/60'
+                  }`}
+                >
+                  Alapszakasz
+                </button>
+                <button
+                  onClick={() => setElite2Tab('playoff')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    elite2Tab === 'playoff' ? 'bg-[#ff5c1a] text-white' : 'bg-transparent text-white/70 hover:bg-black/60'
+                  }`}
+                >
+                  Playoff
+                </button>
+              </div>
+            </div>
+          )}
+
+          {elite2Tab === 'regular' ? (
+            <ChampionshipTable 
+              standings={elite2Standings?.standings || []}
+              loading={elite2Loading}
+              title="ELITE 2"
+              color="#ff5c1a"
+              subName={elite2Championship?.subName}
+            />
+          ) : (
+            renderPlayoffTables(elite2PlayoffGroups, '#ff5c1a')
+          )}
           
           {/* Detailed Table Button */}
           {elite2Championship && (
@@ -540,6 +667,50 @@ function UpcomingMatches() {
 
   const { data: elite1Matches } = useGetMatchesForLeagueQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id });
   const { data: elite2Matches } = useGetMatchesForLeagueQuery(elite2Championship?.id || '', { skip: !elite2Championship?.id });
+  
+  // Get playoff matches
+  const elite1HasPlayoff = Boolean(elite1Championship?.properties?.hasPlayoff && elite1Championship?.properties?.playoffType === 'groupped');
+  const elite2HasPlayoff = Boolean(elite2Championship?.properties?.hasPlayoff && elite2Championship?.properties?.playoffType === 'groupped');
+  const { data: elite1PlayoffMatches } = useGetPlayoffMatchesQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id || !elite1HasPlayoff });
+  const { data: elite2PlayoffMatches } = useGetPlayoffMatchesQuery(elite2Championship?.id || '', { skip: !elite2Championship?.id || !elite2HasPlayoff });
+  
+  // Normalize playoff matches to match regular match format
+  const normalizePlayoffMatches = (playoffMatches: any) => {
+    if (!playoffMatches) return [];
+    const upper = Array.isArray(playoffMatches.upper) ? playoffMatches.upper : [];
+    const lower = Array.isArray(playoffMatches.lower) ? playoffMatches.lower : [];
+    return [...upper, ...lower].map((m: any) => ({
+      match: {
+        id: m.id,
+        homeTeamId: m.home?.id,
+        awayTeamId: m.away?.id,
+        homeTeamScore: m.home?.score ?? 0,
+        awayTeamScore: m.away?.score ?? 0,
+        matchAt: m.matchAt,
+        matchDate: m.matchAt,
+        matchStatus: m.status,
+        matchType: 'playoff',
+        isPlayoffMatch: true,
+        matchRound: m.round,
+        gameDay: m.gameDay,
+        matchTable: m.table,
+      },
+      homeTeam: { id: m.home?.id, name: m.home?.name, logo: m.home?.logo },
+      awayTeam: { id: m.away?.id, name: m.away?.name, logo: m.away?.logo },
+    }));
+  };
+  
+  const elite1AllMatches = useMemo(() => {
+    const regular = Array.isArray(elite1Matches) ? elite1Matches : [];
+    const playoff = normalizePlayoffMatches(elite1PlayoffMatches);
+    return [...regular, ...playoff];
+  }, [elite1Matches, elite1PlayoffMatches]);
+  
+  const elite2AllMatches = useMemo(() => {
+    const regular = Array.isArray(elite2Matches) ? elite2Matches : [];
+    const playoff = normalizePlayoffMatches(elite2PlayoffMatches);
+    return [...regular, ...playoff];
+  }, [elite2Matches, elite2PlayoffMatches]);
 
   const getUpcomingMatches = (matches: any[]) => {
     if (!matches) return [];
@@ -582,7 +753,7 @@ function UpcomingMatches() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'UTC'
+      timeZone: 'Europe/Budapest'
     });
   };
 
@@ -612,9 +783,9 @@ function UpcomingMatches() {
           </div>
         )}
         
-        <div className="flex items-center justify-between">
-          <div onClick={(e) => handleTeamClick(e, match.homeTeam?.id || '')} className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="flex-shrink-0 w-6 h-6 relative">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
+          <div onClick={(e) => handleTeamClick(e, match.homeTeam?.id || '')} className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity cursor-pointer w-full sm:w-auto">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 relative">
               {match.homeTeam?.logo ? (
                 <Image
                   src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.homeTeam.logo}`}
@@ -623,7 +794,7 @@ function UpcomingMatches() {
                   className="object-contain"
                 />
               ) : (
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-6 sm:h-6 bg-white/20 rounded-full flex items-center justify-center">
                   <span className="text-xs text-white">?</span>
                 </div>
               )}
@@ -631,19 +802,19 @@ function UpcomingMatches() {
             <span className="text-white text-sm font-medium truncate">{match.homeTeam?.name || 'Ismeretlen'}</span>
           </div>
           
-          <div className="flex items-center gap-3 px-4">
+          <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 flex-shrink-0">
             {showScore && match.match.homeTeamScore !== null && (
-              <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.homeTeamScore}</span>
+              <span className="text-[#ff5c1a] text-base sm:text-lg font-bold bg-[#ff5c1a]/10 px-2 sm:px-3 py-1 rounded">{match.match.homeTeamScore}</span>
             )}
             <span className="text-white/50 text-xs">VS</span>
             {showScore && match.match.awayTeamScore !== null && (
-              <span className="text-[#ff5c1a] text-lg font-bold bg-[#ff5c1a]/10 px-3 py-1 rounded">{match.match.awayTeamScore}</span>
+              <span className="text-[#ff5c1a] text-base sm:text-lg font-bold bg-[#ff5c1a]/10 px-2 sm:px-3 py-1 rounded">{match.match.awayTeamScore}</span>
             )}
           </div>
           
-          <div onClick={(e) => handleTeamClick(e, match.awayTeam?.id || '')} className="flex items-center gap-3 flex-1 min-w-0 justify-end hover:opacity-80 transition-opacity cursor-pointer">
+          <div onClick={(e) => handleTeamClick(e, match.awayTeam?.id || '')} className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 justify-end sm:justify-end hover:opacity-80 transition-opacity cursor-pointer w-full sm:w-auto">
             <span className="text-white text-sm font-medium truncate">{match.awayTeam?.name || 'Ismeretlen'}</span>
-            <div className="flex-shrink-0 w-6 h-6 relative">
+            <div className="flex-shrink-0 w-8 h-8 sm:w-6 sm:h-6 relative">
               {match.awayTeam?.logo ? (
                 <Image
                   src={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}${match.awayTeam.logo}`}
@@ -652,7 +823,7 @@ function UpcomingMatches() {
                   className="object-contain"
                 />
               ) : (
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-6 sm:h-6 bg-white/20 rounded-full flex items-center justify-center">
                   <span className="text-xs text-white">?</span>
                 </div>
               )}
@@ -765,7 +936,7 @@ function UpcomingMatches() {
     <div>
       {elite1Championship && (
         <UpcomingMatchesTable 
-          matches={elite1Matches || []}
+          matches={elite1AllMatches}
           title="ELITE"
           color="#ff5c1a"
           championshipId={elite1Championship.id}
@@ -773,7 +944,7 @@ function UpcomingMatches() {
       )}
       {elite2Championship && (
         <UpcomingMatchesTable 
-          matches={elite2Matches || []}
+          matches={elite2AllMatches}
           title="ELITE 2"
           color="#ff5c1a"
           championshipId={elite2Championship.id}

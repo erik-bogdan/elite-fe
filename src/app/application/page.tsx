@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { motion } from 'framer-motion';
 import Table from "../components/Table";
 import { Bebas_Neue } from "next/font/google";
@@ -8,7 +8,7 @@ import UpcomingMatchCard from "../components/UpcomingMatchCard";
 import EnterResultModal from "../components/EnterResultModal";
 import { authClient } from "../lib/auth-client";
 import { useGetMyLeagueQuery } from "@/lib/features/apiSlice";
-import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation } from "@/lib/features/championship/championshipSlice";
+import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetPlayoffMatchesQuery, useGetPlayoffGroupsQuery } from "@/lib/features/championship/championshipSlice";
 import { useGetActiveInviteQuery } from "@/lib/features/apiSlice";
 import { useRouter } from "next/navigation";
 
@@ -43,13 +43,31 @@ export default function DashboardPage() {
   const router = useRouter();
   const [checkingInvite, setCheckingInvite] = useState(true);
   const [upcomingCount, setUpcomingCount] = useState(5);
+  const [standingsTab, setStandingsTab] = useState<'regular' | 'playoff'>('regular');
   // user → my league/team
   const { data: myLeague } = useGetMyLeagueQuery();
   const leagueId = myLeague?.leagueId;
   const myTeamId = myLeague?.teamId;
   const { data: championship } = useGetChampionshipByIdQuery(leagueId!, { skip: !leagueId });
   const { data: leagueMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
+  const { data: playoffMatches } = useGetPlayoffMatchesQuery(leagueId!, { skip: !leagueId });
+  const playoffProperties = championship?.properties;
+  const hasGroupedPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'groupped');
+  const { data: playoffGroups } = useGetPlayoffGroupsQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
   const { data: standings } = useGetStandingsQuery(leagueId!, { skip: !leagueId || !championship?.isStarted });
+  const showPlayoffTab = Boolean(hasGroupedPlayoff && playoffGroups?.enabled && playoffGroups?.ready);
+  const playoffAutoSelected = useRef(false);
+
+  useEffect(() => {
+    if (showPlayoffTab && !playoffAutoSelected.current) {
+      setStandingsTab('playoff');
+      playoffAutoSelected.current = true;
+    }
+    if (!showPlayoffTab && standingsTab !== 'regular') {
+      setStandingsTab('regular');
+      playoffAutoSelected.current = false;
+    }
+  }, [showPlayoffTab, standingsTab]);
   const { data: activeInvite, isLoading: isLoadingActiveInvite } = useGetActiveInviteQuery();
 
   // my standings row
@@ -71,10 +89,71 @@ export default function DashboardPage() {
     ]));
   }, [standings]);
 
+  const playoffUpperTable = useMemo(() => {
+    if (!playoffGroups?.upper?.standings) return [];
+    return playoffGroups.upper.standings.map((s: any, idx: number) => ([
+      { column: 'pos', value: String(idx + 1) },
+      { column: 'name', value: String(s.name || '') },
+      { column: 'win', value: String(s.winsTotal ?? 0) },
+      { column: 'loose', value: String(s.lossesTotal ?? 0) },
+      { column: 'cups', value: String(s.cupDiff ?? 0) },
+      { column: 'points', value: String(s.points ?? 0) },
+    ]));
+  }, [playoffGroups]);
+
+  const playoffLowerTable = useMemo(() => {
+    if (!playoffGroups?.lower?.standings) return [];
+    const offset = playoffGroups.upper?.standings?.length || 0;
+    return playoffGroups.lower.standings.map((s: any, idx: number) => ([
+      { column: 'pos', value: String(offset + idx + 1) },
+      { column: 'name', value: String(s.name || '') },
+      { column: 'win', value: String(s.winsTotal ?? 0) },
+      { column: 'loose', value: String(s.lossesTotal ?? 0) },
+      { column: 'cups', value: String(s.cupDiff ?? 0) },
+      { column: 'points', value: String(s.points ?? 0) },
+    ]));
+  }, [playoffGroups]);
+
+  const normalizedPlayoffMatches = useMemo(() => {
+    if (!playoffMatches || !leagueId) return [];
+    const upper = Array.isArray(playoffMatches.upper) ? playoffMatches.upper : [];
+    const lower = Array.isArray(playoffMatches.lower) ? playoffMatches.lower : [];
+    return [...upper, ...lower].map((m: any) => ({
+      match: {
+        id: m.id,
+        leagueId,
+        homeTeamId: m.home?.id,
+        awayTeamId: m.away?.id,
+        homeTeamScore: m.home?.score ?? 0,
+        awayTeamScore: m.away?.score ?? 0,
+        matchAt: m.matchAt,
+        matchDate: m.matchAt,
+        matchTime: m.matchAt,
+        matchStatus: m.status,
+        matchType: 'playoff',
+        isPlayoffMatch: true,
+        matchRound: m.round,
+        gameDay: m.gameDay,
+        matchTable: m.table,
+        delayedRound: m.round,
+        delayedGameDay: m.gameDay,
+        delayedDate: m.matchAt,
+        delayedTime: m.matchAt,
+        delayedTable: m.table,
+      },
+      homeTeam: { name: m.home?.name, logo: m.home?.logo },
+      awayTeam: { name: m.away?.name, logo: m.away?.logo },
+    }));
+  }, [playoffMatches, leagueId]);
+
+  const combinedMatches = useMemo(() => {
+    const regular = Array.isArray(leagueMatches) ? leagueMatches : [];
+    return [...regular, ...normalizedPlayoffMatches];
+  }, [leagueMatches, normalizedPlayoffMatches]);
+
   // my matches
   const mySortedMatches = useMemo(() => {
-    const all = Array.isArray(leagueMatches) ? leagueMatches : [];
-    const mine = all.filter((row: any) => row?.match && (row.match.homeTeamId === myTeamId || row.match.awayTeamId === myTeamId) && row.match.matchStatus !== 'completed');
+    const mine = combinedMatches.filter((row: any) => row?.match && (row.match.homeTeamId === myTeamId || row.match.awayTeamId === myTeamId) && row.match.matchStatus !== 'completed');
     
     // Debug: log match data to see if delayed fields are present
     if (mine.length > 0) {
@@ -95,7 +174,7 @@ export default function DashboardPage() {
         delayedTime: row.match.delayedTime,
       }))
       .sort((a: any, b: any) => (a.when?.getTime?.() || 0) - (b.when?.getTime?.() || 0));
-  }, [leagueMatches, myTeamId]);
+  }, [combinedMatches, myTeamId]);
 
   const now = new Date().getTime();
   const upcoming = mySortedMatches.filter(m => (m.when?.getTime?.() || 0) >= now);
@@ -387,23 +466,87 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-black/30 rounded-2xl p-4 md:p-6 border-2 border-[#ff5c1a] shadow-xl shadow-[#ff5c1a33] h-[350px] md:h-[600px] overflow-y-auto"
+            className="bg-black/30 rounded-2xl p-4 md:p-6 border-2 border-[#ff5c1a] shadow-xl shadow-[#ff5c1a33] h-full"
           >
-            <h3 className={`${bebasNeue.className} text-lg md:text-2xl mb-4 md:mb-6 tracking-wider text-white`}>Liga Tabella</h3>
-            {miniTable.length > 0 ? (
-            <Table records={{
-              header: [
-                {column: 'pos', value: 'Pos.'},
-                {column: 'name', value: 'Name'},
-                {column: 'win', value: 'W'},
-                {column: 'loose', value: 'L'},
-                {column: 'cups', value: 'Cups'},
-                {column: 'points', value: 'Points'},
-              ],
-              rows: miniTable,
-            }} />
-            ) : (
-              <div className="text-white/70">Még nem indult el a szezon</div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`${bebasNeue.className} text-lg md:text-2xl tracking-wider text-white`}>Liga Tabella</h3>
+              {showPlayoffTab && (
+                <div className="flex items-center gap-2 bg-black/40 border border-[#ff5c1a]/40 rounded-full p-1">
+                  <button
+                    onClick={() => setStandingsTab('regular')}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${standingsTab === 'regular' ? 'bg-[#ff5c1a] text-white' : 'text-white/60'}`}
+                  >
+                    Alapszakasz
+                  </button>
+                  <button
+                    onClick={() => setStandingsTab('playoff')}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${standingsTab === 'playoff' ? 'bg-[#ff5c1a] text-white' : 'text-white/60'}`}
+                  >
+                    Playoff
+                  </button>
+                </div>
+              )}
+            </div>
+            {standingsTab === 'regular' && (
+              <>
+                {miniTable.length > 0 ? (
+                  <div className="max-h-[500px] overflow-y-auto pr-2">
+                    <Table records={{
+                      header: [
+                        {column: 'pos', value: 'Pos.'},
+                        {column: 'name', value: 'Name'},
+                        {column: 'win', value: 'W'},
+                        {column: 'loose', value: 'L'},
+                        {column: 'cups', value: 'Cups'},
+                        {column: 'points', value: 'Points'},
+                      ],
+                      rows: miniTable,
+                    }} />
+                  </div>
+                ) : (
+                  <div className="text-white/70">Még nem indult el a szezon</div>
+                )}
+              </>
+            )}
+            {standingsTab === 'playoff' && hasGroupedPlayoff && (
+              <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2">
+                <div>
+                  <h4 className="text-white font-semibold mb-2">Felső ház</h4>
+                  {playoffUpperTable.length > 0 ? (
+                    <Table records={{
+                      header: [
+                        {column: 'pos', value: 'Pos.'},
+                        {column: 'name', value: 'Name'},
+                        {column: 'win', value: 'W'},
+                        {column: 'loose', value: 'L'},
+                        {column: 'cups', value: 'Cups'},
+                        {column: 'points', value: 'Points'},
+                      ],
+                      rows: playoffUpperTable,
+                    }} />
+                  ) : (
+                    <div className="text-white/60 text-sm">Nincs adat.</div>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-white font-semibold mb-2">Alsó ház</h4>
+                  {playoffLowerTable.length > 0 ? (
+                    <Table records={{
+                      header: [
+                        {column: 'pos', value: 'Pos.'},
+                        {column: 'name', value: 'Name'},
+                        {column: 'win', value: 'W'},
+                        {column: 'loose', value: 'L'},
+                        {column: 'cups', value: 'Cups'},
+                        {column: 'points', value: 'Points'},
+                      ],
+                      rows: playoffLowerTable,
+                    }} />
+                  ) : (
+                    <div className="text-white/60 text-sm">Nincs adat.</div>
+                  )}
+                </div>
+              </div>
             )}
           </motion.div>
         </div>

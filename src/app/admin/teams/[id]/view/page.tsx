@@ -34,6 +34,8 @@ export default function TeamViewPage() {
   const [uploadLogo] = useUploadTeamLogoMutation();
   const [logo, setLogo] = useState<string | null>(null);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [matches, setMatches] = useState<any[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
 
   const columns = [
     columnHelper.accessor('captain', {
@@ -131,6 +133,46 @@ export default function TeamViewPage() {
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  useEffect(() => {
+    let active = true;
+    const fetchMatches = async () => {
+      if (!teamId || !selectedSeasonId) {
+        setMatches([]);
+        return;
+      }
+      setLoadingMatches(true);
+      try {
+        const params = new URLSearchParams({
+          seasonId: String(selectedSeasonId),
+          teamId: String(teamId),
+          playoff: 'all',
+          page: '1',
+          pageSize: '200',
+        });
+        const backend = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
+        const resp = await fetch(`${backend}/api/matches?${params.toString()}`, { credentials: 'include' });
+        if (!active) return;
+        if (resp.ok) {
+          const payload = await resp.json();
+          setMatches(Array.isArray(payload?.items) ? payload.items : []);
+        } else {
+          setMatches([]);
+        }
+      } catch {
+        if (active) setMatches([]);
+      } finally {
+        if (active) setLoadingMatches(false);
+      }
+    };
+    fetchMatches();
+    return () => { active = false; };
+  }, [teamId, selectedSeasonId]);
+
+  const matchLogo = (logo?: string | null) => {
+    if (!logo) return "/elitelogo.png";
+    return toBackendUrl(logo) || "/elitelogo.png";
+  };
 
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files[0]) {
@@ -254,6 +296,75 @@ export default function TeamViewPage() {
           </table>
         </div>
       </div>
+
+      {/* Matches overview */}
+      <div className="bg-[#002b6b]/90 rounded-xl shadow-lg border border-[#ff5c1a] p-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Csapat meccsei</h2>
+            <p className="text-white/70 text-sm">Szezon: {seasons?.find((s) => String(s.id) === String(selectedSeasonId))?.name || '-'}</p>
+          </div>
+          <span className="text-white/80">{loadingMatches ? 'Betöltés...' : `${matches.length} meccs`}</span>
+        </div>
+        {loadingMatches ? (
+          <div className="text-white/70">Meccsek betöltése...</div>
+        ) : matches.length === 0 ? (
+          <div className="text-white/70">Nincs elérhető meccs ehhez a szezonhoz.</div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {matches.map((row: any) => {
+              const match = row.match;
+              const home = row.homeTeam;
+              const away = row.awayTeam;
+              const date = match.matchAt ? new Date(match.matchAt) : null;
+              const dateLabel = date ? date.toLocaleDateString('hu-HU') : '-';
+              const timeLabel = date ? date.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' }) : '-';
+              const status = match.matchStatus === 'completed' ? 'Befejezett' : match.matchStatus === 'scheduled' ? 'Ütemezett' : match.matchStatus === 'in_progress' ? 'Folyamatban' : 'Egyéb';
+              const typeLabel = match.isPlayoffMatch ? 'PLAYOFF' : 'ALAPSZAKASZ';
+              return (
+                <div key={match.id} className="rounded-2xl bg-[radial-gradient(circle_at_top,#09204c,#010a1c)] border border-white/10 p-4 shadow-[0_10px_25px_rgba(0,0,0,0.35)] space-y-3">
+                  <div className="flex items-center justify-between text-xs text-white/70">
+                    <span>Forduló {match.matchRound ?? '-'}</span>
+                    <span>Játéknap {match.gameDay ?? '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Image src={matchLogo(home?.logo)} alt={home?.name || 'home'} width={40} height={40} className="w-10 h-10 rounded-full border border-white/10 object-cover" />
+                      <span className="text-white font-semibold truncate">{home?.name || '-'}</span>
+                    </div>
+                    <div className="text-center text-white">
+                      {match.matchStatus === 'completed' ? (
+                        <span className="text-2xl font-bold">{match.homeTeamScore ?? 0} - {match.awayTeamScore ?? 0}</span>
+                      ) : (
+                        <span className="text-white/60 text-sm">vs</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0 justify-end">
+                      <span className="text-white font-semibold truncate text-right">{away?.name || '-'}</span>
+                      <Image src={matchLogo(away?.logo)} alt={away?.name || 'away'} width={40} height={40} className="w-10 h-10 rounded-full border border-white/10 object-cover" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-white/70">
+                    <div>
+                      <div>{dateLabel}</div>
+                      <div>{timeLabel}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full border text-[10px] tracking-wide ${match.isPlayoffMatch ? 'border-purple-300 text-purple-200' : 'border-blue-300 text-blue-200'}`}>
+                        {typeLabel}
+                      </span>
+                      <span className="px-3 py-1 rounded-full border border-white/20 text-[10px] tracking-wide text-white/80">
+                        {status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <AddPlayerModal
         isOpen={isAddPlayerOpen}
         onClose={async () => {
