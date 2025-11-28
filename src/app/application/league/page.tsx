@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Bebas_Neue } from 'next/font/google';
 import { useGetMyLeagueQuery } from '@/lib/features/apiSlice';
-import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetStandingsByDayQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetStandingsByGameDayQuery, useGetGameDayMvpsQuery, useGetPlayoffGroupsQuery, useGetPlayoffMatchesQuery } from '@/lib/features/championship/championshipSlice';
+import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetStandingsByDayQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetStandingsByGameDayQuery, useGetGameDayMvpsQuery, useGetPlayoffGroupsQuery, useGetPlayoffMatchesQuery, useGetKnockoutBracketQuery } from '@/lib/features/championship/championshipSlice';
 import { FiChevronDown, FiChevronUp, FiArrowUp, FiArrowDown, FiMinus } from 'react-icons/fi';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import RankModal from '@/app/admin/championships/[id]/RankModal';
@@ -16,11 +16,45 @@ export default function LeaguePage() {
   const leagueId = my?.leagueId;
   const { data: championship, isLoading } = useGetChampionshipByIdQuery(leagueId!, { skip: !leagueId });
   const { data: leagueMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
-  const hasGroupedPlayoff = Boolean(championship?.properties?.hasPlayoff && championship?.properties?.playoffType === 'groupped');
+  const playoffProperties = (championship as any)?.properties;
+  const hasGroupedPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'groupped');
+  const hasKnockoutPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'knockout');
+  const { data: knockoutBracket } = useGetKnockoutBracketQuery(leagueId!, { skip: !leagueId || !hasKnockoutPlayoff });
   const { data: playoffGroups } = useGetPlayoffGroupsQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
   const { data: playoffMatches } = useGetPlayoffMatchesQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
   const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
   const abs = (p?: string | null) => (p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '');
+  const knockoutBestOf = Number(playoffProperties?.knockoutBestOf) || 7;
+  const knockoutWinsNeeded = Math.ceil(knockoutBestOf / 2);
+  const [allMatchesIncludingPlayoff, setAllMatchesIncludingPlayoff] = useState<any[]>([]);
+  useEffect(() => {
+    if (!leagueId) {
+      setAllMatchesIncludingPlayoff([]);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('leagueId', leagueId);
+        params.set('playoff', 'all');
+        params.set('page', '1');
+        params.set('pageSize', '1000');
+        const url = `${backendBase}/api/matches?${params.toString()}`;
+        const resp = await fetch(url, { credentials: 'include' });
+        if (resp.ok && mounted) {
+          const data = await resp.json();
+          setAllMatchesIncludingPlayoff(data.items || []);
+        } else if (mounted) {
+          setAllMatchesIncludingPlayoff([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch all matches:', error);
+        if (mounted) setAllMatchesIncludingPlayoff([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, [leagueId, backendBase]);
 
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [uptoGameDay, setUptoGameDay] = useState<number | 'all'>('all');
@@ -42,7 +76,7 @@ export default function LeaguePage() {
       displayRank: idx + 1,
       logo: abs(s.logo),
     }));
-  }, [playoffGroups]);
+  }, [playoffGroups, abs]);
   const playoffLowerTable = useMemo(() => {
     if (!playoffGroups?.lower?.standings) return [];
     const offset = playoffGroups.upper?.standings?.length || 0;
@@ -51,9 +85,59 @@ export default function LeaguePage() {
       displayRank: offset + idx + 1,
       logo: abs(s.logo),
     }));
-  }, [playoffGroups]);
+  }, [playoffGroups, abs]);
+
+  // Knockout playoff bracket data
+  const knockoutBracketData = useMemo(() => {
+    if (!hasKnockoutPlayoff || !standingsData?.standings || !leagueMatches) return null;
+    
+    // Get playoff matches
+    const allMatches = Array.isArray(leagueMatches) ? leagueMatches : [];
+    const playoffMatches = allMatches.filter((row: any) => row.match?.isPlayoffMatch);
+    
+    // Get teams with seeds from standings
+    const teams = standingsData.standings.map((s: any, idx: number) => ({
+      seed: idx + 1,
+      teamId: s.teamId,
+      name: s.name,
+      logo: abs(s.logo),
+    }));
+
+    // Organize matches by round
+    const matchesByRound: Record<number, any[]> = {};
+    playoffMatches.forEach((row: any) => {
+      const round = row.match?.matchRound || 1;
+      if (!matchesByRound[round]) matchesByRound[round] = [];
+      matchesByRound[round].push({
+        id: row.match?.id,
+        round,
+        homeTeamId: row.match?.homeTeamId,
+        awayTeamId: row.match?.awayTeamId,
+        homeTeam: row.homeTeam,
+        awayTeam: row.awayTeam,
+        homeScore: row.match?.homeTeamScore,
+        awayScore: row.match?.awayTeamScore,
+        status: row.match?.matchStatus,
+        matchAt: row.match?.matchAt,
+      });
+    });
+
+    return { teams, matchesByRound };
+  }, [hasKnockoutPlayoff, standingsData, leagueMatches, abs]);
   const playoffDefaulted = useRef(false);
-  const showPlayoffTab = hasGroupedPlayoff && Boolean(playoffGroups?.enabled && playoffGroups?.ready);
+  
+  // Check if all regular season matches are completed
+  const allRegularMatchesCompleted = useMemo(() => {
+    if (!leagueMatches || !Array.isArray(leagueMatches)) return false;
+    const regularMatches = leagueMatches.filter((row: any) => !row.match?.isPlayoffMatch);
+    if (regularMatches.length === 0) return false;
+    return regularMatches.every((row: any) => row.match?.matchStatus === 'completed');
+  }, [leagueMatches]);
+
+  const showGroupedPlayoffTab = hasGroupedPlayoff && Boolean(playoffGroups?.enabled && playoffGroups?.ready);
+  const showKnockoutPlayoffTab = hasKnockoutPlayoff && allRegularMatchesCompleted;
+  const showPlayoffTab = showGroupedPlayoffTab || showKnockoutPlayoffTab;
+  
   useEffect(() => {
     if (!showPlayoffTab && standingsTab === 'playoff') {
       setStandingsTab('regular');
@@ -65,33 +149,91 @@ export default function LeaguePage() {
   const [expandedMatchDays, setExpandedMatchDays] = useState<number[]>([]);
   const [expandedMatches, setExpandedMatches] = useState<string[]>([]);
   const [expandedRounds, setExpandedRounds] = useState<string[]>([]);
-
-  if (loadingMy) return <div className="p-6 text-white">Betöltés...</div>;
-  if (!leagueId) return (
-    <div className="min-h-screen py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="text-center mb-12">
-          <h1 className={`${bebasNeue.className} text-4xl md:text-6xl text-white mb-4 tracking-wider`}>
-            TABELLA
-          </h1>
-          <div className="flex items-center justify-center space-x-4 text-[#ff5c1a]">
-            <span className="text-sm">•</span>
-            <span className="text-sm">Nincs aktív bajnokság</span>
-            <span className="text-sm">•</span>
-            <span className="text-sm">Szezon</span>
-          </div>
-        </div>
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4">🏆</div>
-          <h2 className="text-2xl text-white font-semibold mb-2">Nincs elérhető bajnokság</h2>
-          <p className="text-gray-400">Nem található bajnokság az aktív szezonban.</p>
-        </div>
-      </div>
-    </div>
-  );
-  if (isLoading || !championship) return <div className="p-6 text-white">Betöltés...</div>;
+  const [playoffRoundTab, setPlayoffRoundTab] = useState<'quarter' | 'semi' | 'final'>('quarter');
 
   // Build match days list grouped by date (UTC) and then rounds (read-only)
+  const allMatchesMapped = useMemo(() => {
+    const regularMatchesList = Array.isArray(leagueMatches) ? leagueMatches : [];
+    const playoffMatchesList = Array.isArray(allMatchesIncludingPlayoff)
+      ? allMatchesIncludingPlayoff.filter((row: any) => row?.match?.isPlayoffMatch === true)
+      : [];
+
+    const matchIds = new Set<string>();
+    const allMatches: any[] = [];
+
+    regularMatchesList.forEach((row: any) => {
+      const matchId = row?.match?.id;
+      if (matchId && !matchIds.has(String(matchId))) {
+        matchIds.add(String(matchId));
+        allMatches.push(row);
+      }
+    });
+
+    playoffMatchesList.forEach((row: any) => {
+      const matchId = row?.match?.id;
+      if (matchId && !matchIds.has(String(matchId))) {
+        matchIds.add(String(matchId));
+        allMatches.push(row);
+      }
+    });
+
+    return allMatches
+      .map((row: any) => {
+        const match = row.match;
+        const isDelayed = match.isDelayed || false;
+        const isPlayoffMatch = match.isPlayoffMatch || false;
+
+        const originalDateSrc = match.matchAt || match.matchDate || null;
+        const originalTimeSrc = match.matchTime || match.matchAt || null;
+        const originalTableSrc = match.matchTable;
+        const originalRoundSrc = match.matchRound;
+        const originalGameDaySrc = match.gameDay;
+        const delayedGameDaySrc = match.delayedGameDay;
+
+        if (!originalDateSrc) return null;
+        const originalDateIso = new Date(originalDateSrc).toISOString();
+        const originalTimeIso = originalTimeSrc ? new Date(originalTimeSrc).toISOString() : null;
+        const effectiveGameDay = (typeof delayedGameDaySrc === 'number' && !Number.isNaN(delayedGameDaySrc))
+          ? delayedGameDaySrc
+          : (typeof originalGameDaySrc === 'number' && !Number.isNaN(originalGameDaySrc))
+            ? originalGameDaySrc
+            : (originalGameDaySrc ? Number(originalGameDaySrc) : null);
+        const effectiveDateIso = (isDelayed && match.delayedDate) ? new Date(match.delayedDate).toISOString() : originalDateIso;
+        const effectiveTimeIso = (isDelayed && match.delayedTime) ? new Date(match.delayedTime).toISOString() : originalTimeIso;
+        const effectiveTable = (isDelayed && match.delayedTable) ? match.delayedTable : originalTableSrc;
+        const effectiveRound = (isDelayed && match.delayedRound) ? match.delayedRound : originalRoundSrc;
+
+        return {
+          id: match.id,
+          date: effectiveDateIso,
+          time: effectiveTimeIso,
+          table: effectiveTable,
+          round: effectiveRound,
+          gameDay: effectiveGameDay,
+          isDelayed,
+          isPlayoffMatch,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          originalDateRaw: match.matchAt || match.matchDate,
+          originalTime: match.matchTime || match.matchAt,
+          originalTable: match.matchTable,
+          originalRound: match.matchRound,
+          delayedDate: match.delayedDate,
+          delayedTime: match.delayedTime,
+          delayedTable: match.delayedTable,
+          delayedRound: match.delayedRound,
+          delayedGameDay: delayedGameDaySrc,
+          home: row.homeTeam?.name || match.homeTeamId,
+          homeLogo: abs(row.homeTeam?.logo) || '/elitelogo.png',
+          away: row.awayTeam?.name || match.awayTeamId,
+          awayLogo: abs(row.awayTeam?.logo) || '/elitelogo.png',
+          homeScore: match.homeTeamScore,
+          awayScore: match.awayTeamScore,
+        };
+      })
+      .filter(Boolean);
+  }, [leagueMatches, allMatchesIncludingPlayoff, abs]);
+
   const matchDays = (Array.isArray(leagueMatches) ? leagueMatches : [])
     .map((row: any) => {
       const match = row.match;
@@ -159,11 +301,11 @@ export default function LeaguePage() {
         .map((x: any) => new Date(x.date).getTime())
         .reduce((min: number, t: number) => Math.min(min, t), Number.POSITIVE_INFINITY);
       const dateIso = new Date(earliest).toISOString();
-      return ({
+      return {
         id: (typeof gameDayNum === 'number' && !Number.isNaN(gameDayNum)) ? gameDayNum : (idx + 1),
         date: dateIso,
         round: (items[0] as any)?.round ?? (idx + 1),
-      matches: items
+        matches: items
         .map((m: any) => ({
           id: m.id,
           // raw timestamp for reliable sorting
@@ -188,7 +330,7 @@ export default function LeaguePage() {
           awayScore: m.awayScore,
         }))
         .sort((a: any, b: any) => (a.sortTime - b.sortTime) || (a.tableNumber - b.tableNumber))
-      });
+      };
     })
     .sort((a, b) => {
       // Primary: sort by numeric gameday id if both are numeric and not fallback-generated
@@ -205,6 +347,191 @@ export default function LeaguePage() {
   const toggleRound = (key: string) => {
     setExpandedRounds(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
+  const toggleMatch = (matchId: string) => {
+    setExpandedMatches(prev => prev.includes(matchId) ? prev.filter(id => id !== matchId) : [...prev, matchId]);
+  };
+
+  const teamInfoById = useMemo(() => {
+    if (!standingsData?.standings) return new Map<string, { teamId: string; name: string; logo: string; seed: number }>();
+    const map = new Map<string, { teamId: string; name: string; logo: string; seed: number }>();
+    standingsData.standings.forEach((row: any, idx: number) => {
+      map.set(String(row.teamId), {
+        teamId: String(row.teamId),
+        name: row.name,
+        logo: abs(row.logo) || '/elitelogo.png',
+        seed: idx + 1,
+      });
+    });
+    return map;
+  }, [standingsData, abs]);
+
+  const teamInfoBySeed = useMemo(() => {
+    const map = new Map<number, { teamId: string; name: string; logo: string; seed: number }>();
+    teamInfoById.forEach((info) => {
+      if (info?.seed) {
+        map.set(info.seed, info);
+      }
+    });
+    return map;
+  }, [teamInfoById]);
+
+  const knockoutAdvancers = useMemo(() => {
+    if (!hasKnockoutPlayoff || !teamInfoById.size || !Array.isArray(allMatchesMapped) || allMatchesMapped.length === 0) {
+      return {
+        semi: { left: [null, null], right: [null, null] } as { left: Array<{ teamId: string; name: string; logo: string; seed: number } | null>; right: Array<{ teamId: string; name: string; logo: string; seed: number } | null>; },
+        final: [null, null] as Array<{ teamId: string; name: string; logo: string; seed: number } | null>,
+      };
+    }
+
+    const getSeriesWinner = (teamAId: string, teamBId: string, gameDay: number) => {
+      if (!teamAId || !teamBId) return null;
+      const seriesMatches = allMatchesMapped.filter((m: any) => {
+        if (!m.isPlayoffMatch) return false;
+        if (m.gameDay !== gameDay) return false;
+        return (
+          (m.homeTeamId === teamAId && m.awayTeamId === teamBId) ||
+          (m.homeTeamId === teamBId && m.awayTeamId === teamAId)
+        );
+      });
+
+      if (seriesMatches.length === 0) return null;
+
+      let teamAWins = 0;
+      let teamBWins = 0;
+
+      seriesMatches.forEach((match: any) => {
+        if (match.homeScore == null || match.awayScore == null) return;
+        if (match.homeTeamId === teamAId && match.awayTeamId === teamBId) {
+          if (match.homeScore > match.awayScore) teamAWins++;
+          else if (match.awayScore > match.homeScore) teamBWins++;
+        } else if (match.homeTeamId === teamBId && match.awayTeamId === teamAId) {
+          if (match.homeScore > match.awayScore) teamBWins++;
+          else if (match.awayScore > match.homeScore) teamAWins++;
+        }
+      });
+
+      if (teamAWins >= knockoutWinsNeeded) return teamAId;
+      if (teamBWins >= knockoutWinsNeeded) return teamBId;
+      return null;
+    };
+
+    const semiSlots = {
+      left: [null, null],
+      right: [null, null],
+    } as { left: Array<{ teamId: string; name: string; logo: string; seed: number } | null>; right: Array<{ teamId: string; name: string; logo: string; seed: number } | null>; };
+
+    const quarterSeedPairs = [
+      { seeds: [1, 8], slot: 'left' as const, index: 0 },
+      { seeds: [5, 4], slot: 'left' as const, index: 1 },
+      { seeds: [3, 6], slot: 'right' as const, index: 0 },
+      { seeds: [7, 2], slot: 'right' as const, index: 1 },
+    ];
+
+    quarterSeedPairs.forEach(({ seeds, slot, index }) => {
+      const teamA = teamInfoBySeed.get(seeds[0]);
+      const teamB = teamInfoBySeed.get(seeds[1]);
+      if (!teamA || !teamB) return;
+      const winnerId = getSeriesWinner(teamA.teamId, teamB.teamId, 1);
+      if (winnerId) {
+        const winnerInfo = teamInfoById.get(winnerId);
+        semiSlots[slot][index] = winnerInfo || null;
+      }
+    });
+
+    const finalSlots: Array<{ teamId: string; name: string; logo: string; seed: number } | null> = [null, null];
+
+    const semifinalSeries = [
+      { teams: semiSlots.left, index: 0 },
+      { teams: semiSlots.right, index: 1 },
+    ];
+
+    semifinalSeries.forEach(({ teams, index }) => {
+      const teamA = teams[0];
+      const teamB = teams[1];
+      if (!teamA || !teamB) return;
+      const winnerId = getSeriesWinner(teamA.teamId, teamB.teamId, 2);
+      if (winnerId) {
+        finalSlots[index] = teamInfoById.get(winnerId) || null;
+      }
+    });
+
+    return { semi: semiSlots, final: finalSlots };
+  }, [allMatchesMapped, hasKnockoutPlayoff, knockoutWinsNeeded, teamInfoById, teamInfoBySeed]);
+
+  // Create matchup structure with matches for bracket display (similar to admin page)
+  const knockoutMatchupsWithMatches = useMemo(() => {
+    if (!knockoutBracket || !allMatchesMapped || allMatchesMapped.length === 0) return [];
+    
+    const playoffMatches = allMatchesMapped.filter((m: any) => m.isPlayoffMatch);
+    const matchupMap = new Map<string, any[]>();
+    
+    // Group matches by matchup (team pair)
+    playoffMatches.forEach((m: any) => {
+      const teamIds = [m.homeTeamId, m.awayTeamId].sort().join('-');
+      if (!matchupMap.has(teamIds)) {
+        matchupMap.set(teamIds, []);
+      }
+      matchupMap.get(teamIds)!.push(m);
+    });
+    
+    // Get current round matchups
+    let currentMatchups: any[] = [];
+    if (playoffRoundTab === 'quarter') {
+      currentMatchups = knockoutBracket?.quarterfinals || [];
+    } else if (playoffRoundTab === 'semi') {
+      currentMatchups = knockoutBracket?.semifinals || [];
+    } else if (playoffRoundTab === 'final') {
+      currentMatchups = knockoutBracket?.finals || [];
+    }
+    
+    return currentMatchups.map((matchup: any) => {
+      const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort().join('-');
+      const matches = matchupMap.get(teamIds) || [];
+      
+      // Sort matches by round or date
+      const sortedMatches = matches.sort((a: any, b: any) => {
+        const aRound = a.round || 0;
+        const bRound = b.round || 0;
+        if (aRound !== bRound) return aRound - bRound;
+        return new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime();
+      });
+      
+      return {
+        ...matchup,
+        matches: sortedMatches.map((m: any) => ({
+          id: m.id,
+          homeScore: m.homeScore,
+          awayScore: m.awayScore,
+          round: m.round,
+        })),
+      };
+    });
+  }, [knockoutBracket, allMatchesMapped, playoffRoundTab]);
+
+  if (loadingMy) return <div className="p-6 text-white">Betöltés...</div>;
+  if (!leagueId) return (
+    <div className="min-h-screen py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="text-center mb-12">
+          <h1 className={`${bebasNeue.className} text-4xl md:text-6xl text-white mb-4 tracking-wider`}>
+            TABELLA
+          </h1>
+          <div className="flex items-center justify-center space-x-4 text-[#ff5c1a]">
+            <span className="text-sm">•</span>
+            <span className="text-sm">Nincs aktív bajnokság</span>
+            <span className="text-sm">•</span>
+            <span className="text-sm">Szezon</span>
+          </div>
+        </div>
+        <div className="text-center py-16">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-2xl text-white font-semibold mb-2">Nincs elérhető bajnokság</h2>
+          <p className="text-gray-400">Nem található bajnokság az aktív szezonban.</p>
+        </div>
+      </div>
+    </div>
+  );
+  if (isLoading || !championship) return <div className="p-6 text-white">Betöltés...</div>;
 
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8">
@@ -255,13 +582,13 @@ export default function LeaguePage() {
             <div className="flex items-center gap-2 bg-black/30 border border-[#ff5c1a]/40 rounded-full p-1">
               <button
                 onClick={() => setStandingsTab('regular')}
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${standingsTab === 'regular' ? 'bg-[#ff5c1a] text-white' : 'text-white/60'}`}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${standingsTab === 'regular' ? 'bg-[#ff5c1a] text-white' : 'text-white/60 hover:text-white/80'}`}
               >
                 Alapszakasz
               </button>
               <button
                 onClick={() => setStandingsTab('playoff')}
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${standingsTab === 'playoff' ? 'bg-[#ff5c1a] text-white' : 'text-white/60'}`}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${standingsTab === 'playoff' ? 'bg-[#ff5c1a] text-white' : 'text-white/60 hover:text-white/80'}`}
               >
                 Playoff
               </button>
@@ -411,10 +738,519 @@ export default function LeaguePage() {
             </table>
           </div>
         ) : showPlayoffTab ? (
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-white font-semibold mb-2">Felső ház</h4>
-              {playoffUpperTable.length > 0 ? (
+          hasKnockoutPlayoff ? (
+            // Knockout bracket display
+            <div className="py-8">
+              <div className="text-center mb-6">
+                <h2 className={`${bebasNeue.className} text-4xl md:text-5xl text-white mb-2 tracking-wider`}>
+                  PLAYOFF
+                </h2>
+                <div className={`${bebasNeue.className} text-white text-lg md:text-xl mb-6`}>
+                  {championship.name.toUpperCase()}
+                </div>
+                
+                {/* Round subtabs */}
+                <div className="flex items-center justify-center gap-2 mb-8">
+                  <button
+                    onClick={() => setPlayoffRoundTab('quarter')}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      playoffRoundTab === 'quarter' 
+                        ? 'bg-[#ff5c1a] text-white' 
+                        : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#ff5c1a]/30'
+                    }`}
+                  >
+                    Negyeddöntő
+                  </button>
+                  <button
+                    onClick={() => setPlayoffRoundTab('semi')}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      playoffRoundTab === 'semi' 
+                        ? 'bg-[#ff5c1a] text-white' 
+                        : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#ff5c1a]/30'
+                    }`}
+                  >
+                    Elődöntő
+                  </button>
+                  <button
+                    onClick={() => setPlayoffRoundTab('final')}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      playoffRoundTab === 'final' 
+                        ? 'bg-[#ff5c1a] text-white' 
+                        : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#ff5c1a]/30'
+                    }`}
+                  >
+                    Döntő
+                  </button>
+                </div>
+              </div>
+              {knockoutBracketData ? (
+                <div className="flex flex-col items-center gap-8">
+                  {/* Bracket structure - two columns with better spacing */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24 w-full max-w-6xl">
+                    {/* Left column */}
+                    <div className="space-y-6">
+                      {(() => {
+                        let leftSeeds: number[] = [];
+                        let teamsToShow: number = 0;
+                        
+                        // Use knockoutBracket API data if available
+                        let matchups: Array<{
+                          homeTeamId: string;
+                          homeTeamName: string;
+                          awayTeamId: string;
+                          awayTeamName: string;
+                          homeWins: number;
+                          awayWins: number;
+                          winnerId?: string;
+                          isComplete: boolean;
+                        }> = [];
+                        
+                        if (playoffRoundTab === 'quarter') {
+                          matchups = knockoutBracket?.quarterfinals || [];
+                          leftSeeds = [1, 8, 5, 4].filter(seed => seed <= (knockoutBracketData?.teams.length || 0));
+                          teamsToShow = leftSeeds.length;
+                        } else if (playoffRoundTab === 'semi') {
+                          matchups = knockoutBracket?.semifinals || [];
+                          teamsToShow = 2;
+                        } else if (playoffRoundTab === 'final') {
+                          matchups = knockoutBracket?.finals || [];
+                          teamsToShow = 1;
+                        }
+                        
+                        // Group teams into pairs for matchups
+                        type TeamItem = {
+                          index: number;
+                          team: { seed: number; teamId: string; name: string; logo: string } | null;
+                          seed: number | null;
+                          matchup?: typeof matchups[0];
+                        };
+                        const pairs: Array<Array<TeamItem>> = [];
+                        
+                        if (matchups.length > 0 && knockoutBracket) {
+                          // Use API data with winners - for left column, only show first 2 matchups if quarterfinals
+                          const endIdx = playoffRoundTab === 'quarter' ? 2 : matchups.length;
+                          for (let i = 0; i < endIdx; i++) {
+                            const matchup = matchups[i];
+                            const homeTeam = knockoutBracketData?.teams.find(t => t.teamId === matchup.homeTeamId);
+                            const awayTeam = knockoutBracketData?.teams.find(t => t.teamId === matchup.awayTeamId);
+                            pairs.push([
+                              {
+                                index: i * 2,
+                                team: homeTeam || null,
+                                seed: homeTeam?.seed || null,
+                                matchup,
+                              },
+                              {
+                                index: i * 2 + 1,
+                                team: awayTeam || null,
+                                seed: awayTeam?.seed || null,
+                                matchup,
+                              },
+                            ]);
+                          }
+                        } else {
+                          // Fallback to original logic
+                          for (let i = 0; i < teamsToShow; i += 2) {
+                            const pair = [];
+                            for (let j = 0; j < 2 && i + j < teamsToShow; j++) {
+                              let team: typeof knockoutBracketData.teams[0] | null = null;
+                              let seed: number | null = null;
+                              
+                              if (playoffRoundTab === 'quarter' && knockoutBracketData) {
+                                seed = leftSeeds[i + j];
+                                team = knockoutBracketData.teams.find(t => t.seed === seed) || null;
+                              } else if (playoffRoundTab === 'semi') {
+                                const advancers = knockoutAdvancers?.semi?.left || [];
+                                team = advancers[i + j] || null;
+                                seed = team?.seed ?? null;
+                              } else if (playoffRoundTab === 'final') {
+                                const finalTeams = knockoutAdvancers?.final || [];
+                                if (i === 0 && j === 0) {
+                                  team = finalTeams[0] || null;
+                                  seed = team?.seed ?? null;
+                                } else {
+                                  team = null;
+                                  seed = null;
+                                }
+                              }
+                              
+                              pair.push({ index: i + j, team, seed });
+                            }
+                            pairs.push(pair);
+                          }
+                        }
+                        
+                        return pairs.map((pair, pairIndex) => {
+                          const isLastPair = pairIndex === pairs.length - 1;
+                          const isAfterFirstMatchup = playoffRoundTab === 'quarter' && pairIndex === 0;
+                          
+                          // Find matching matchup with matches
+                          const matchupWithMatches = pair.length === 2 && pair[0].team && pair[1].team
+                            ? knockoutMatchupsWithMatches.find((m: any) => {
+                                const teamIds = [pair[0].team!.teamId, pair[1].team!.teamId].sort();
+                                const matchupTeamIds = [m.homeTeamId, m.awayTeamId].sort();
+                                return teamIds[0] === matchupTeamIds[0] && teamIds[1] === matchupTeamIds[1];
+                              })
+                            : null;
+                          
+                          // Determine which team in pair corresponds to home/away in matchup
+                          let pairTeam0IsHome = true;
+                          if (matchupWithMatches && pair[0].team && pair[1].team) {
+                            pairTeam0IsHome = matchupWithMatches.homeTeamId === pair[0].team.teamId;
+                          }
+                          
+                          // Calculate wins for each team
+                          let team0Wins = 0;
+                          let team1Wins = 0;
+                          if (matchupWithMatches && matchupWithMatches.matches) {
+                            matchupWithMatches.matches.forEach((match: any, matchIdx: number) => {
+                              if (match.homeScore !== null && match.awayScore !== null) {
+                                const matchNumber = matchIdx + 1;
+                                const isOddMatch = matchNumber % 2 === 1;
+                                const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                
+                                if (match.homeScore > match.awayScore) {
+                                  if (isTeam0HomeThisMatch) team0Wins++;
+                                  else team1Wins++;
+                                } else if (match.awayScore > match.homeScore) {
+                                  if (isTeam0HomeThisMatch) team1Wins++;
+                                  else team0Wins++;
+                                }
+                              }
+                            });
+                          } else if (matchupWithMatches) {
+                            // Fallback to API wins if matches not available
+                            team0Wins = pairTeam0IsHome ? matchupWithMatches.homeWins : matchupWithMatches.awayWins;
+                            team1Wins = pairTeam0IsHome ? matchupWithMatches.awayWins : matchupWithMatches.homeWins;
+                          }
+                          
+                          return (
+                            <div key={pairIndex} className={`relative ${isAfterFirstMatchup ? 'mb-20' : ''}`}>
+                              {pair.map((item, itemIndex) => {
+                                const isEmpty = !item.team;
+                                const matchup = matchupWithMatches || item.matchup;
+                                const isWinner = matchup?.winnerId === item.team?.teamId;
+                                const wins = itemIndex === 0 ? team0Wins : team1Wins;
+                                
+                                return (
+                                  <div key={item.index} className={`relative ${itemIndex === 0 ? 'mb-3' : ''}`}>
+                                    <div className={`bg-gradient-to-r from-[#ff5c1a]/20 via-[#ff5c1a]/10 to-transparent rounded-xl border-2 ${isWinner ? 'border-green-500' : 'border-[#ff5c1a]/60'} p-4 min-h-[110px] md:min-h-[90px] flex flex-col justify-center ${isEmpty ? 'opacity-50' : 'hover:border-[#ff5c1a] hover:shadow-lg hover:shadow-[#ff5c1a]/30'} transition-all`}>
+                                      <div className="flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                          {item.seed && (
+                                            <span className={`${bebasNeue.className} text-[#ff5c1a] font-bold text-xl flex-shrink-0`}>
+                                              {item.seed}.
+                                            </span>
+                                          )}
+                                          <span className={`${bebasNeue.className} text-white font-semibold text-lg md:text-xl truncate tracking-wide ${isEmpty ? 'text-white/40' : ''}`}>
+                                            {item.team ? item.team.name.toUpperCase() : '-'}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                          {/* Main result score - to the left of logo */}
+                                          {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                            <span className={`${bebasNeue.className} text-3xl md:text-4xl font-bold ${wins > (itemIndex === 0 ? team1Wins : team0Wins) ? 'text-[#ff5c1a]' : 'text-white/60'}`}>
+                                              {wins}
+                                            </span>
+                                          )}
+                                          {item.team && (
+                                            <Image 
+                                              src={item.team.logo || '/elitelogo.png'} 
+                                              alt={item.team.name} 
+                                              width={48} 
+                                              height={48} 
+                                              className="object-contain w-12 h-12 md:w-14 md:h-14"
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {itemIndex === 0 && pair.length === 2 && (
+                                      <>
+                                        {/* Match results display */}
+                                        {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                          <div className="pt-3">
+                                            <div className="flex items-center justify-center gap-2 text-sm text-white/80">
+                                              <span className="text-white/60">
+                                                {matchupWithMatches.matches.slice(0, 7).map((match: any, matchIdx: number) => {
+                                                  const isCompleted = match.homeScore !== null && match.awayScore !== null;
+                                                  const homeScore = match.homeScore ?? 0;
+                                                  const awayScore = match.awayScore ?? 0;
+                                                  
+                                                  // Determine which team is home for this specific match
+                                                  const matchNumber = matchIdx + 1;
+                                                  const isOddMatch = matchNumber % 2 === 1;
+                                                  const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                                  
+                                                  // Display score always in pair[0] - pair[1] order
+                                                  let displayScore0, displayScore1;
+                                                  if (isTeam0HomeThisMatch) {
+                                                    displayScore0 = homeScore;
+                                                    displayScore1 = awayScore;
+                                                  } else {
+                                                    displayScore0 = awayScore;
+                                                    displayScore1 = homeScore;
+                                                  }
+                                                  
+                                                  return (
+                                                    <span key={matchIdx}>
+                                                      {displayScore0}-{displayScore1}
+                                                      {matchIdx < Math.min(matchupWithMatches.matches.length, 7) - 1 ? ', ' : ''}
+                                                    </span>
+                                                  );
+                                                })}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    {/* Right column */}
+                    <div className="space-y-6">
+                      {(() => {
+                        // Use knockoutBracket API data if available
+                        let matchups: Array<{
+                          homeTeamId: string;
+                          homeTeamName: string;
+                          awayTeamId: string;
+                          awayTeamName: string;
+                          homeWins: number;
+                          awayWins: number;
+                          winnerId?: string;
+                          isComplete: boolean;
+                        }> = [];
+                        let rightSeeds: number[] = [];
+                        let teamsToShow: number = 0;
+                        
+                        if (playoffRoundTab === 'quarter') {
+                          matchups = knockoutBracket?.quarterfinals || [];
+                          rightSeeds = [3, 6, 7, 2].filter(seed => seed <= (knockoutBracketData?.teams.length || 0));
+                          teamsToShow = rightSeeds.length;
+                        } else if (playoffRoundTab === 'semi') {
+                          matchups = knockoutBracket?.semifinals || [];
+                          teamsToShow = 2;
+                        } else if (playoffRoundTab === 'final') {
+                          matchups = knockoutBracket?.finals || [];
+                          teamsToShow = 1;
+                        }
+                        
+                        // Group teams into pairs for matchups
+                        type TeamItem = {
+                          index: number;
+                          team: { seed: number; teamId: string; name: string; logo: string } | null;
+                          seed: number | null;
+                          matchup?: typeof matchups[0];
+                        };
+                        const pairs: Array<Array<TeamItem>> = [];
+                        
+                        if (matchups.length > 0 && knockoutBracket) {
+                          // Use API data with winners - for right column, skip first matchup if quarterfinals
+                          const startIdx = playoffRoundTab === 'quarter' ? 2 : 0;
+                          for (let i = startIdx; i < matchups.length; i++) {
+                            const matchup = matchups[i];
+                            const homeTeam = knockoutBracketData?.teams.find(t => t.teamId === matchup.homeTeamId);
+                            const awayTeam = knockoutBracketData?.teams.find(t => t.teamId === matchup.awayTeamId);
+                            pairs.push([
+                              {
+                                index: (i - startIdx) * 2,
+                                team: homeTeam || null,
+                                seed: homeTeam?.seed || null,
+                                matchup,
+                              },
+                              {
+                                index: (i - startIdx) * 2 + 1,
+                                team: awayTeam || null,
+                                seed: awayTeam?.seed || null,
+                                matchup,
+                              },
+                            ]);
+                          }
+                        } else {
+                          // Fallback to original logic
+                          for (let i = 0; i < teamsToShow; i += 2) {
+                            const pair = [];
+                            for (let j = 0; j < 2 && i + j < teamsToShow; j++) {
+                              let team: typeof knockoutBracketData.teams[0] | null = null;
+                              let seed: number | null = null;
+                              
+                              if (playoffRoundTab === 'quarter' && knockoutBracketData) {
+                                seed = rightSeeds[i + j];
+                                team = knockoutBracketData.teams.find(t => t.seed === seed) || null;
+                              } else if (playoffRoundTab === 'semi') {
+                                const advancers = knockoutAdvancers?.semi?.right || [];
+                                team = advancers[i + j] || null;
+                                seed = team?.seed ?? null;
+                              } else if (playoffRoundTab === 'final') {
+                                const finalTeams = knockoutAdvancers?.final || [];
+                                if (i === 0 && j === 0) {
+                                  team = finalTeams[1] || null;
+                                  seed = team?.seed ?? null;
+                                } else {
+                                  team = null;
+                                  seed = null;
+                                }
+                              }
+                              
+                              pair.push({ index: i + j, team, seed });
+                            }
+                            pairs.push(pair);
+                          }
+                        }
+                        
+                        return pairs.map((pair, pairIndex) => {
+                          const isAfterFirstMatchup = playoffRoundTab === 'quarter' && pairIndex === 0;
+                          
+                          // Find matching matchup with matches
+                          const matchupWithMatches = pair.length === 2 && pair[0].team && pair[1].team
+                            ? knockoutMatchupsWithMatches.find((m: any) => {
+                                const teamIds = [pair[0].team!.teamId, pair[1].team!.teamId].sort();
+                                const matchupTeamIds = [m.homeTeamId, m.awayTeamId].sort();
+                                return teamIds[0] === matchupTeamIds[0] && teamIds[1] === matchupTeamIds[1];
+                              })
+                            : null;
+                          
+                          // Determine which team in pair corresponds to home/away in matchup
+                          let pairTeam0IsHome = true;
+                          if (matchupWithMatches && pair[0].team && pair[1].team) {
+                            pairTeam0IsHome = matchupWithMatches.homeTeamId === pair[0].team.teamId;
+                          }
+                          
+                          // Calculate wins for each team
+                          let team0Wins = 0;
+                          let team1Wins = 0;
+                          if (matchupWithMatches && matchupWithMatches.matches) {
+                            matchupWithMatches.matches.forEach((match: any, matchIdx: number) => {
+                              if (match.homeScore !== null && match.awayScore !== null) {
+                                const matchNumber = matchIdx + 1;
+                                const isOddMatch = matchNumber % 2 === 1;
+                                const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                
+                                if (match.homeScore > match.awayScore) {
+                                  if (isTeam0HomeThisMatch) team0Wins++;
+                                  else team1Wins++;
+                                } else if (match.awayScore > match.homeScore) {
+                                  if (isTeam0HomeThisMatch) team1Wins++;
+                                  else team0Wins++;
+                                }
+                              }
+                            });
+                          } else if (matchupWithMatches) {
+                            // Fallback to API wins if matches not available
+                            team0Wins = pairTeam0IsHome ? matchupWithMatches.homeWins : matchupWithMatches.awayWins;
+                            team1Wins = pairTeam0IsHome ? matchupWithMatches.awayWins : matchupWithMatches.homeWins;
+                          }
+                          
+                          return (
+                            <div key={pairIndex} className={`relative ${isAfterFirstMatchup ? 'mb-20' : ''}`}>
+                              {pair.map((item, itemIndex) => {
+                                const isEmpty = !item.team;
+                                const matchup = matchupWithMatches || item.matchup;
+                                const isWinner = matchup?.winnerId === item.team?.teamId;
+                                const wins = itemIndex === 0 ? team0Wins : team1Wins;
+                                
+                                return (
+                                  <div key={item.index} className={`relative ${itemIndex === 0 ? 'mb-3' : ''}`}>
+                                    <div className={`bg-gradient-to-r from-transparent via-[#ff5c1a]/10 to-[#ff5c1a]/20 rounded-xl border-2 ${isWinner ? 'border-green-500' : 'border-[#ff5c1a]/60'} p-4 min-h-[110px] md:min-h-[90px] flex flex-col justify-center ${isEmpty ? 'opacity-50' : 'hover:border-[#ff5c1a] hover:shadow-lg hover:shadow-[#ff5c1a]/30'} transition-all`}>
+                                      <div className="flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                          {item.seed && (
+                                            <span className={`${bebasNeue.className} text-[#ff5c1a] font-bold text-xl flex-shrink-0`}>
+                                              {item.seed}.
+                                            </span>
+                                          )}
+                                          <span className={`${bebasNeue.className} text-white font-semibold text-lg md:text-xl truncate tracking-wide ${isEmpty ? 'text-white/40' : ''} ${isWinner ? 'text-green-400' : ''}`}>
+                                            {item.team ? item.team.name.toUpperCase() : '-'}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                          {/* Main result score - to the left of logo */}
+                                          {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                            <span className={`${bebasNeue.className} text-3xl md:text-4xl font-bold ${wins > (itemIndex === 0 ? team1Wins : team0Wins) ? 'text-[#ff5c1a]' : 'text-white/60'}`}>
+                                              {wins}
+                                            </span>
+                                          )}
+                                          {item.team && (
+                                            <Image 
+                                              src={item.team.logo || '/elitelogo.png'} 
+                                              alt={item.team.name} 
+                                              width={48} 
+                                              height={48} 
+                                              className="object-contain w-12 h-12 md:w-14 md:h-14"
+                                            />
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {itemIndex === 0 && pair.length === 2 && (
+                                      <>
+                                        {/* Match results display */}
+                                        {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                          <div className="pt-3">
+                                            <div className="flex items-center justify-center gap-2 text-sm text-white/80">
+                                              <span className="text-white/60">
+                                                {matchupWithMatches.matches.slice(0, 7).map((match: any, matchIdx: number) => {
+                                                  const isCompleted = match.homeScore !== null && match.awayScore !== null;
+                                                  const homeScore = match.homeScore ?? 0;
+                                                  const awayScore = match.awayScore ?? 0;
+                                                  
+                                                  // Determine which team is home for this specific match
+                                                  const matchNumber = matchIdx + 1;
+                                                  const isOddMatch = matchNumber % 2 === 1;
+                                                  const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                                  
+                                                  // Display score always in pair[0] - pair[1] order
+                                                  let displayScore0, displayScore1;
+                                                  if (isTeam0HomeThisMatch) {
+                                                    displayScore0 = homeScore;
+                                                    displayScore1 = awayScore;
+                                                  } else {
+                                                    displayScore0 = awayScore;
+                                                    displayScore1 = homeScore;
+                                                  }
+                                                  
+                                                  return (
+                                                    <span key={matchIdx}>
+                                                      {displayScore0}-{displayScore1}
+                                                      {matchIdx < Math.min(matchupWithMatches.matches.length, 7) - 1 ? ', ' : ''}
+                                                    </span>
+                                                  );
+                                                })}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <div className="text-white/60">A playoff bracket betöltése...</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Grouped playoff tables
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-white font-semibold mb-2">Felső ház</h4>
+                {playoffUpperTable.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-[#ff5c1a]/30">
                     <thead>
@@ -485,6 +1321,7 @@ export default function LeaguePage() {
               )}
             </div>
           </div>
+          )
         ) : null}
       </div>
 
@@ -499,7 +1336,7 @@ export default function LeaguePage() {
       )}
 
       {/* Matches */}
-      {standingsTab === 'playoff' && showPlayoffTab ? (
+      {standingsTab === 'playoff' && showGroupedPlayoffTab ? (
         <div className="space-y-6">
           {['upper', 'lower'].map((house) => {
             const label = house === 'upper' ? 'Felső ház meccsei' : 'Alsó ház meccsei';
@@ -525,7 +1362,15 @@ export default function LeaguePage() {
                             <span className="text-white font-semibold truncate">{match.home?.name || '-'}</span>
                           </div>
                           <div className={`${bebasNeue.className} text-2xl text-white`}>
-                            {match.status === 'completed' ? `${match.home?.score ?? 0} - ${match.away?.score ?? 0}` : <span className="text-white/60 text-base">vs</span>}
+                            {match.status === 'completed' ? (
+                              <>
+                                <span>{match.home?.score ?? 0}</span>
+                                <span className="text-white/60 mx-1">-</span>
+                                <span>{match.away?.score ?? 0}</span>
+                              </>
+                            ) : (
+                              <span className="text-white/60 text-base">vs</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 min-w-0 justify-end">
                             <span className="text-white font-semibold truncate text-right">{match.away?.name || '-'}</span>
@@ -586,66 +1431,75 @@ export default function LeaguePage() {
                                 const isOT = Math.max(Number(match.homeScore||0), Number(match.awayScore||0)) > 10 && Math.min(Number(match.homeScore||0), Number(match.awayScore||0)) >= 10;
                                 const keyId = String(match.id);
                                 return (
-                                  <div key={keyId} className={`${match.isDelayed ? (match.round === match.originalRound ? "bg-red-900/20" : "bg-yellow-900/20 border-1 border-yellow-400") : "bg-black/30"} rounded-lg p-3 sm:p-4 relative`}>
-                                    <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                                        <div className="flex items-center gap-2">
-                                          <Image src={match.homeTeam.logo || '/elitelogo.png'} alt={match.homeTeam.name} width={24} height={24} className="rounded-full flex-shrink-0" />
-                                          <span className="text-white text-sm sm:text-base truncate">{match.homeTeam.name}</span>
-                                        </div>
-                                        <span className="text-white hidden sm:inline">-</span>
-                                        <div className="flex items-center gap-2">
-                                          <Image src={match.awayTeam.logo || '/elitelogo.png'} alt={match.awayTeam.name} width={24} height={24} className="rounded-full flex-shrink-0" />
-                                          <span className="text-white text-sm sm:text-base truncate">{match.awayTeam.name}</span>
-                                        </div>
-                                        <span className="text-[#ff5c1a] text-sm sm:text-base">{typeof match.homeScore === 'number' && typeof match.awayScore === 'number' ? `(${match.homeScore} - ${match.awayScore}${isOT ? ' OT' : ''})` : ''}</span>
-                                        {match.isDelayed && (
-                                          <div className="bg-gray-800/90 text-white px-2 py-1 rounded text-xs font-bold">
-                                            {match.round === match.originalRound ? 'HALASZTVA' : 'HALASZTOTT MECCS LEJÁTSZÁSA'}
-                                          </div>
-                                        )}
+                                  <div key={keyId} className={`${match.isDelayed ? (match.round === match.originalRound ? "bg-red-900/20" : "bg-yellow-900/20 border-1 border-yellow-400") : "bg-black/30"} rounded-lg p-4 relative`}>
+                                    {match.isDelayed && (
+                                      <div className="bg-gray-800/90 text-white px-2 py-1 rounded text-xs font-bold">
+                                        {match.round === match.originalRound ? 'HALASZTVA' : 'HALASZTOTT MECCS LEJÁTSZÁSA'}
                                       </div>
-                                      <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                        <span className="text-[#e0e6f7] text-xs sm:text-sm">
+                                    )}
+                                    <button onClick={() => toggleMatch(keyId)} className="w-full flex items-center justify-between">
+                                      <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2">
+                                          <Image src={match.homeTeam.logo || "/elitelogo.png"} alt={match.homeTeam.name} width={32} height={32} className="rounded-full" />
+                                          <span className="text-white">{match.homeTeam.name}</span>
+                                        </div>
+                                        <span className="text-white">-</span>
+                                        <div className="flex items-center gap-2">
+                                          <Image src={match.awayTeam.logo || "/elitelogo.png"} alt={match.awayTeam.name} width={32} height={32} className="rounded-full" />
+                                          <span className="text-white">{match.awayTeam.name}</span>
+                                        </div>
+                                        <span className="text-[#ff5c1a]">{typeof match.homeScore === 'number' && typeof match.awayScore === 'number' ? `(${match.homeScore} - ${match.awayScore}${isOT ? ' OT' : ''})` : ''}</span>
+                                      </div>
+                                      <div className="flex items-center gap-4">
+                                        <span className="text-[#e0e6f7]">
                                           {match.isDelayed && match.delayedTime ? 
                                             new Date(match.delayedTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) : 
                                             match.time
                                           }
                                         </span>
-                                        <span className="text-[#e0e6f7] text-xs sm:text-sm">
+                                        <span className="text-[#e0e6f7]">
                                           Asztal: {match.isDelayed && match.delayedTable ? match.delayedTable : match.tableNumber}
                                         </span>
+                                        {expandedMatches.includes(keyId) ? <FiChevronUp className="w-5 h-5 text-[#ff5c1a]" /> : <FiChevronDown className="w-5 h-5 text-[#ff5c1a]" />}
                                       </div>
-                                    </div>
-                                    {match.isDelayed && (match.delayedDate || match.delayedTime || match.delayedTable || match.delayedRound) && match.round === match.originalRound && (
-                                      <div className="mt-3 pt-3 border-t border-gray-600">
-                                        <div className="text-xs text-gray-300 mb-2 font-bold">Halasztva erre:</div>
-                                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-200">
-                                          {match.delayedDate && (
-                                            <div>
-                                              <span className="text-gray-400">Új dátum:</span>
-                                              <span className="text-white ml-2">{new Date(match.delayedDate).toLocaleDateString('hu-HU', { timeZone: 'UTC' })}</span>
+                                    </button>
+
+                                    {expandedMatches.includes(keyId) && (
+                                      <div className="mt-4 flex flex-col gap-4">
+                                        {/* Delayed Match Details */}
+                                        {match.isDelayed && (match.delayedDate || match.delayedTime || match.delayedTable || match.delayedRound) && match.round === match.originalRound && (
+                                          <div className="mb-4">
+                                            <h4 className="text-white font-semibold mb-2">HALASZTVA ERRE:</h4>
+                                            <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-3">
+                                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                                {match.delayedDate && (
+                                                  <div>
+                                                    <span className="text-gray-400">Új dátum:</span>
+                                                    <span className="text-white ml-2">{new Date(match.delayedDate).toLocaleDateString('hu-HU', { timeZone: 'UTC' })}</span>
+                                                  </div>
+                                                )}
+                                                {match.delayedTime && (
+                                                  <div>
+                                                    <span className="text-gray-400">Új időpont:</span>
+                                                    <span className="text-white ml-2">{new Date(match.delayedTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}</span>
+                                                  </div>
+                                                )}
+                                                {match.delayedTable && (
+                                                  <div>
+                                                    <span className="text-gray-400">Új asztal:</span>
+                                                    <span className="text-white ml-2">{match.delayedTable}</span>
+                                                  </div>
+                                                )}
+                                                {match.delayedRound && (
+                                                  <div>
+                                                    <span className="text-gray-400">Új forduló:</span>
+                                                    <span className="text-white ml-2">{match.delayedRound}.</span>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </div>
-                                          )}
-                                          {match.delayedTime && (
-                                            <div>
-                                              <span className="text-gray-400">Új időpont:</span>
-                                              <span className="text-white ml-2">{new Date(match.delayedTime).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}</span>
-                                            </div>
-                                          )}
-                                          {match.delayedTable && (
-                                            <div>
-                                              <span className="text-gray-400">Új asztal:</span>
-                                              <span className="text-white ml-2">{match.delayedTable}</span>
-                                            </div>
-                                          )}
-                                          {match.delayedRound && (
-                                            <div>
-                                              <span className="text-gray-400">Új forduló:</span>
-                                              <span className="text-white ml-2">{match.delayedRound}.</span>
-                                            </div>
-                                          )}
-                                        </div>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </div>

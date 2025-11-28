@@ -30,6 +30,7 @@ export default function LiveMatchesPage() {
   const [round, setRound] = useState<number | ''>('');
   const [gameDay, setGameDay] = useState<number | ''>('');
   const [teamId, setTeamId] = useState<string | ''>('');
+  const [playoffFilter, setPlayoffFilter] = useState<'all' | 'regular' | 'playoff'>('all');
   
   // Pagination
   const [page, setPage] = useState<number>(1);
@@ -87,6 +88,13 @@ export default function LiveMatchesPage() {
         if (typeof round === 'number') params.set('round', String(round));
         if (typeof gameDay === 'number') params.set('gameDay', String(gameDay));
         if (teamId) params.set('teamId', String(teamId));
+        if (playoffFilter === 'playoff') {
+          params.set('playoff', 'playoff');
+        } else if (playoffFilter === 'regular') {
+          // Don't set playoff param, defaults to 'regular'
+        } else {
+          params.set('playoff', 'all');
+        }
         params.set('page', String(page));
         params.set('pageSize', String(pageSize));
 
@@ -124,7 +132,7 @@ export default function LiveMatchesPage() {
       }
     })();
     return () => { mounted = false };
-  }, [seasonId, leagueId, round, gameDay, teamId, page, pageSize, backendBase]);
+  }, [seasonId, leagueId, round, gameDay, teamId, playoffFilter, page, pageSize, backendBase]);
 
   // Fetch available rounds when league changes (like /admin/matches)
   useEffect(() => {
@@ -160,10 +168,11 @@ export default function LiveMatchesPage() {
         return;
       }
       try {
-        // Fetch all matches for the league to get complete gameDays list
+        // Fetch all matches for the league to get complete gameDays list (including playoff)
         const params = new URLSearchParams();
         if (seasonId) params.set('seasonId', String(seasonId));
         params.set('leagueId', String(leagueId));
+        params.set('playoff', 'all'); // Include playoff matches
         params.set('page', '1');
         params.set('pageSize', '10000'); // Large page size to get all matches
 
@@ -845,6 +854,23 @@ export default function LiveMatchesPage() {
                     styles={selectStyles as any}
                   />
                 </div>
+                <div className="min-w-[180px]">
+                  <Select
+                    options={[
+                      { value: 'all', label: 'Összes meccs' },
+                      { value: 'regular', label: 'Alapszakasz' },
+                      { value: 'playoff', label: 'Playoff' }
+                    ]}
+                    value={(() => {
+                      return { value: playoffFilter, label: playoffFilter === 'all' ? 'Összes meccs' : playoffFilter === 'regular' ? 'Alapszakasz' : 'Playoff' } as any;
+                    })()}
+                    onChange={(opt: any) => {
+                      setPlayoffFilter(opt?.value || 'all');
+                      setPage(1);
+                    }}
+                    styles={selectStyles as any}
+                  />
+                </div>
               </div>
             </div>
 
@@ -859,14 +885,15 @@ export default function LiveMatchesPage() {
                     <th className="px-6 py-4 text-left text-[#e0e6f7]">Forduló</th>
                     <th className="px-6 py-4 text-left text-[#e0e6f7]">Játéknap</th>
                     <th className="px-6 py-4 text-left text-[#e0e6f7]">Asztal</th>
+                    <th className="px-6 py-4 text-left text-[#e0e6f7]">Típus</th>
                     <th className="px-6 py-4 text-left text-[#e0e6f7]">Műveletek</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <tr><td colSpan={8} className="px-6 py-6 text-white">Betöltés...</td></tr>
+                    <tr><td colSpan={9} className="px-6 py-6 text-white">Betöltés...</td></tr>
                   ) : !matches || matches.items.length === 0 ? (
-                    <tr><td colSpan={8} className="px-6 py-6 text-white">Nincs találat</td></tr>
+                    <tr><td colSpan={9} className="px-6 py-6 text-white">Nincs találat</td></tr>
                   ) : (
                     matches.items.map((row: any) => {
                       const match = row.match;
@@ -929,6 +956,17 @@ export default function LiveMatchesPage() {
                               </span>
                             ) : (
                               effectiveTable ?? '-'
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {match.isPlayoffMatch ? (
+                              <span className="px-2 py-1 bg-[#ff5c1a]/20 text-[#ff5c1a] rounded text-xs font-semibold">
+                                Playoff
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-gray-600/20 text-gray-400 rounded text-xs font-semibold">
+                                Alapszakasz
+                              </span>
                             )}
                           </td>
                           <td className="px-6 py-4">

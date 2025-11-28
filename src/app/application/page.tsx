@@ -53,6 +53,42 @@ export default function DashboardPage() {
   const { data: playoffMatches } = useGetPlayoffMatchesQuery(leagueId!, { skip: !leagueId });
   const playoffProperties = championship?.properties;
   const hasGroupedPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'groupped');
+  const hasKnockoutPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'knockout');
+  
+  // Fetch all matches including playoff matches (for both grouped and knockout playoff)
+  const [allMatchesIncludingPlayoff, setAllMatchesIncludingPlayoff] = useState<any[]>([]);
+  useEffect(() => {
+    if (!leagueId) {
+      setAllMatchesIncludingPlayoff([]);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('leagueId', leagueId);
+        params.set('playoff', 'all'); // Get all matches including playoff
+        params.set('page', '1');
+        params.set('pageSize', '1000'); // Large page size to get all matches
+        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches?${params.toString()}`;
+        const resp = await fetch(url, { credentials: 'include' });
+        if (resp.ok && mounted) {
+          const data = await resp.json();
+          const items = data.items || [];
+          console.log('Fetched all matches (including playoff):', items.length, 'items');
+          console.log('Playoff matches in response:', items.filter((r: any) => r?.match?.isPlayoffMatch === true).length);
+          setAllMatchesIncludingPlayoff(items);
+        } else if (mounted) {
+          console.error('Failed to fetch all matches, status:', resp.status);
+          setAllMatchesIncludingPlayoff([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch all matches:', error);
+        if (mounted) setAllMatchesIncludingPlayoff([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, [leagueId]);
   const { data: playoffGroups } = useGetPlayoffGroupsQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
   const { data: standings } = useGetStandingsQuery(leagueId!, { skip: !leagueId || !championship?.isStarted });
   const showPlayoffTab = Boolean(hasGroupedPlayoff && playoffGroups?.enabled && playoffGroups?.ready);
@@ -114,7 +150,8 @@ export default function DashboardPage() {
     ]));
   }, [playoffGroups]);
 
-  const normalizedPlayoffMatches = useMemo(() => {
+  // Normalize grouped playoff matches
+  const normalizedGroupedPlayoffMatches = useMemo(() => {
     if (!playoffMatches || !leagueId) return [];
     const upper = Array.isArray(playoffMatches.upper) ? playoffMatches.upper : [];
     const lower = Array.isArray(playoffMatches.lower) ? playoffMatches.lower : [];
@@ -146,10 +183,51 @@ export default function DashboardPage() {
     }));
   }, [playoffMatches, leagueId]);
 
+  // Extract knockout playoff matches from allMatchesIncludingPlayoff
+  const normalizedKnockoutPlayoffMatches = useMemo(() => {
+    if (!allMatchesIncludingPlayoff.length || !leagueId) return [];
+    // Filter knockout playoff matches (isPlayoffMatch: true)
+    const playoffMatches = allMatchesIncludingPlayoff.filter((row: any) => {
+      const isPlayoff = row?.match?.isPlayoffMatch === true;
+      if (isPlayoff) {
+        console.log('Found playoff match:', row.match.id, row.match.homeTeamId, row.match.awayTeamId, row.match.matchStatus);
+      }
+      return isPlayoff;
+    });
+    console.log('Knockout playoff matches found:', playoffMatches.length, 'out of', allMatchesIncludingPlayoff.length, 'total matches');
+    return playoffMatches.map((row: any) => ({
+        match: {
+          id: row.match.id,
+          leagueId,
+          homeTeamId: row.match.homeTeamId,
+          awayTeamId: row.match.awayTeamId,
+          homeTeamScore: row.match.homeTeamScore ?? 0,
+          awayTeamScore: row.match.awayTeamScore ?? 0,
+          matchAt: row.match.matchAt,
+          matchDate: row.match.matchDate,
+          matchTime: row.match.matchTime,
+          matchStatus: row.match.matchStatus,
+          matchType: 'playoff',
+          isPlayoffMatch: true,
+          matchRound: row.match.matchRound,
+          gameDay: row.match.gameDay,
+          matchTable: row.match.matchTable,
+          isDelayed: row.match.isDelayed,
+          delayedRound: row.match.delayedRound,
+          delayedGameDay: row.match.delayedGameDay,
+          delayedDate: row.match.delayedDate,
+          delayedTime: row.match.delayedTime,
+          delayedTable: row.match.delayedTable,
+        },
+        homeTeam: row.homeTeam,
+        awayTeam: row.awayTeam,
+      }));
+  }, [allMatchesIncludingPlayoff, leagueId]);
+
   const combinedMatches = useMemo(() => {
     const regular = Array.isArray(leagueMatches) ? leagueMatches : [];
-    return [...regular, ...normalizedPlayoffMatches];
-  }, [leagueMatches, normalizedPlayoffMatches]);
+    return [...regular, ...normalizedGroupedPlayoffMatches, ...normalizedKnockoutPlayoffMatches];
+  }, [leagueMatches, normalizedGroupedPlayoffMatches, normalizedKnockoutPlayoffMatches]);
 
   // my matches
   const mySortedMatches = useMemo(() => {

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { Bebas_Neue } from 'next/font/google';
-import { useGetChampionshipByIdQuery, useGetStandingsQuery, useGetStandingsByDayQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetStandingsByGameDayQuery, useGetMatchesForLeagueQuery, useGetPlayoffGroupsQuery } from '@/lib/features/championship/championshipSlice';
+import { useGetChampionshipByIdQuery, useGetStandingsQuery, useGetStandingsByDayQuery, useGetStandingsUptoGameDayQuery, useGetStandingsUptoRoundQuery, useGetStandingsByGameDayQuery, useGetMatchesForLeagueQuery, useGetPlayoffGroupsQuery, useGetKnockoutBracketQuery } from '@/lib/features/championship/championshipSlice';
 import { FiArrowUp, FiArrowDown, FiMinus } from 'react-icons/fi';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import TopNav from '../../components/TopNav';
@@ -16,34 +16,158 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
   const { data: championship, isLoading } = useGetChampionshipByIdQuery(championshipId);
   const { data: leagueMatches } = useGetMatchesForLeagueQuery(championshipId, { skip: !championshipId });
   
+  // absolute URL helper for logos coming from backend
+  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
+  const abs = (p?: string | null) => (p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '');
+  
   const hasGroupedPlayoff = Boolean(championship?.properties?.hasPlayoff && championship?.properties?.playoffType === 'groupped');
+  const hasKnockoutPlayoff = Boolean(championship?.properties?.hasPlayoff && championship?.properties?.playoffType === 'knockout');
   const { data: playoffGroups } = useGetPlayoffGroupsQuery(championshipId, { skip: !championshipId || !hasGroupedPlayoff });
-  const showPlayoffTab = hasGroupedPlayoff && Boolean(playoffGroups?.enabled && playoffGroups?.ready);
+  const { data: knockoutBracket } = useGetKnockoutBracketQuery(championshipId, { skip: !championshipId || !hasKnockoutPlayoff });
+  const showGroupedPlayoffTab = hasGroupedPlayoff && Boolean(playoffGroups?.enabled && playoffGroups?.ready);
+  
+  // Check if all regular season matches are completed for knockout playoff
+  const allRegularMatchesCompleted = useMemo(() => {
+    if (!leagueMatches || !Array.isArray(leagueMatches)) return false;
+    const regularMatches = leagueMatches.filter((row: any) => !row.match?.isPlayoffMatch);
+    if (regularMatches.length === 0) return false;
+    return regularMatches.every((row: any) => row.match?.matchStatus === 'completed');
+  }, [leagueMatches]);
+  
+  const showKnockoutPlayoffTab = hasKnockoutPlayoff && allRegularMatchesCompleted;
+  const showPlayoffTab = showGroupedPlayoffTab || showKnockoutPlayoffTab;
   
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [uptoGameDay, setUptoGameDay] = useState<number | 'all'>('all');
   const [uptoRound, setUptoRound] = useState<number | 'all'>('all');
   const [standingsTab, setStandingsTab] = useState<'regular' | 'playoff'>(showPlayoffTab ? 'playoff' : 'regular');
+  const [playoffRoundTab, setPlayoffRoundTab] = useState<'quarter' | 'semi' | 'final'>('quarter');
+  const [allMatchesIncludingPlayoff, setAllMatchesIncludingPlayoff] = useState<any[]>([]);
+  const playoffDefaulted = useRef(false);
   
-  // Auto-switch to playoff tab when available
+  // Fetch all matches including playoff
   useEffect(() => {
-    if (showPlayoffTab && standingsTab === 'regular') {
-      setStandingsTab('playoff');
+    if (!championshipId) {
+      setAllMatchesIncludingPlayoff([]);
+      return;
     }
-  }, [showPlayoffTab]);
-
+    let mounted = true;
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('leagueId', championshipId);
+        params.set('playoff', 'all');
+        params.set('page', '1');
+        params.set('pageSize', '1000');
+        const url = `${backendBase}/api/matches?${params.toString()}`;
+        const resp = await fetch(url, { credentials: 'include' });
+        if (resp.ok && mounted) {
+          const data = await resp.json();
+          setAllMatchesIncludingPlayoff(data.items || []);
+        } else if (mounted) {
+          setAllMatchesIncludingPlayoff([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch all matches:', error);
+        if (mounted) setAllMatchesIncludingPlayoff([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, [championshipId]);
+  
   const { data: standingsData } = useGetStandingsQuery(championshipId, { skip: !championshipId || !championship?.isStarted || selectedDay !== 'all' || uptoGameDay !== 'all' || uptoRound !== 'all' });
   const { data: standingsByDay } = useGetStandingsByGameDayQuery({ id: championshipId, gameDay: Number(selectedDay) }, { skip: !championshipId || !championship?.isStarted || selectedDay === 'all' });
   const { data: standingsUpto } = useGetStandingsUptoGameDayQuery({ id: championshipId, gameDay: Number(uptoGameDay) }, { skip: !championshipId || !championship?.isStarted || uptoGameDay === 'all' || uptoRound !== 'all' });
   const { data: standingsPrev } = useGetStandingsUptoGameDayQuery({ id: championshipId, gameDay: Number(uptoGameDay) - 1 }, { skip: !championshipId || !championship?.isStarted || uptoGameDay === 'all' || Number(uptoGameDay) <= 1 });
   const { data: standingsUptoRound } = useGetStandingsUptoRoundQuery({ id: championshipId, round: Number(uptoRound) }, { skip: !championshipId || !championship?.isStarted || uptoRound === 'all' });
   const { data: standingsPrevRound } = useGetStandingsUptoRoundQuery({ id: championshipId, round: Number(uptoRound) - 1 }, { skip: !championshipId || !championship?.isStarted || uptoRound === 'all' || Number(uptoRound) <= 1 });
+  
+  // Prepare knockout bracket data
+  const knockoutBracketData = useMemo(() => {
+    if (!hasKnockoutPlayoff || !standingsData?.standings || !leagueMatches) return null;
+    
+    const allMatches = Array.isArray(leagueMatches) ? leagueMatches : [];
+    const playoffMatches = allMatches.filter((row: any) => row.match?.isPlayoffMatch);
+    
+    const teams = standingsData.standings.map((s: any, idx: number) => ({
+      seed: idx + 1,
+      teamId: s.teamId,
+      name: s.name,
+      logo: abs(s.logo),
+    }));
+
+    return { teams, playoffMatches };
+  }, [hasKnockoutPlayoff, standingsData, leagueMatches]);
+  
+  // Create matchup structure with matches for bracket display
+  const knockoutMatchupsWithMatches = useMemo(() => {
+    if (!knockoutBracket || !allMatchesIncludingPlayoff || allMatchesIncludingPlayoff.length === 0) return [];
+    
+    const playoffMatches = allMatchesIncludingPlayoff
+      .filter((row: any) => row?.match?.isPlayoffMatch === true)
+      .map((row: any) => ({
+        id: row.match?.id,
+        homeTeamId: row.match?.homeTeamId,
+        awayTeamId: row.match?.awayTeamId,
+        homeScore: row.match?.homeTeamScore,
+        awayScore: row.match?.awayTeamScore,
+        round: row.match?.matchRound,
+      }));
+    
+    const matchupMap = new Map<string, any[]>();
+    
+    playoffMatches.forEach((m: any) => {
+      const teamIds = [m.homeTeamId, m.awayTeamId].sort().join('-');
+      if (!matchupMap.has(teamIds)) {
+        matchupMap.set(teamIds, []);
+      }
+      matchupMap.get(teamIds)!.push(m);
+    });
+    
+    let currentMatchups: any[] = [];
+    if (playoffRoundTab === 'quarter') {
+      currentMatchups = knockoutBracket?.quarterfinals || [];
+    } else if (playoffRoundTab === 'semi') {
+      currentMatchups = knockoutBracket?.semifinals || [];
+    } else if (playoffRoundTab === 'final') {
+      currentMatchups = knockoutBracket?.finals || [];
+    }
+    
+    return currentMatchups.map((matchup: any) => {
+      const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort().join('-');
+      const matches = matchupMap.get(teamIds) || [];
+      
+      const sortedMatches = matches.sort((a: any, b: any) => {
+        const aRound = a.round || 0;
+        const bRound = b.round || 0;
+        if (aRound !== bRound) return aRound - bRound;
+        return 0;
+      });
+      
+      return {
+        ...matchup,
+        matches: sortedMatches.map((m: any) => ({
+          id: m.id,
+          homeScore: m.homeScore,
+          awayScore: m.awayScore,
+          round: m.round,
+        })),
+      };
+    });
+  }, [knockoutBracket, allMatchesIncludingPlayoff, playoffRoundTab]);
+  
+  // Auto-switch to playoff tab when available (only once, on initial load)
+  useEffect(() => {
+    if (showPlayoffTab && !playoffDefaulted.current) {
+      setStandingsTab('playoff');
+      playoffDefaulted.current = true;
+    } else if (!showPlayoffTab && standingsTab === 'playoff') {
+      setStandingsTab('regular');
+      playoffDefaulted.current = false;
+    }
+  }, [showPlayoffTab, standingsTab]);
 
   if (isLoading || !championship) return <div className="p-6 text-white">Betöltés...</div>;
-
-  // absolute URL helper for logos coming from backend
-  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
-  const abs = (p?: string | null) => (p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '');
 
   // Helper to render playoff tables
   const renderPlayoffTable = (standings: any[], title: string) => {
@@ -317,6 +441,329 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
                   })()}
                 </tbody>
               </table>
+              ) : showKnockoutPlayoffTab ? (
+                // Knockout bracket display
+                <div className="py-8">
+                  <div className="text-center mb-6">
+                    <h2 className={`${bebasNeue.className} text-3xl md:text-4xl text-[#FFDB11] mb-2 tracking-wider`}>
+                      PLAYOFF
+                    </h2>
+                    
+                    {/* Round subtabs */}
+                    <div className="flex items-center justify-center gap-2 mb-8">
+                      <button
+                        onClick={() => setPlayoffRoundTab('quarter')}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                          playoffRoundTab === 'quarter' 
+                            ? 'bg-[#FFDB11] text-black' 
+                            : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#FFDB11]/30'
+                        }`}
+                      >
+                        Negyeddöntő
+                      </button>
+                      <button
+                        onClick={() => setPlayoffRoundTab('semi')}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                          playoffRoundTab === 'semi' 
+                            ? 'bg-[#FFDB11] text-black' 
+                            : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#FFDB11]/30'
+                        }`}
+                      >
+                        Elődöntő
+                      </button>
+                      <button
+                        onClick={() => setPlayoffRoundTab('final')}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                          playoffRoundTab === 'final' 
+                            ? 'bg-[#FFDB11] text-black' 
+                            : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#FFDB11]/30'
+                        }`}
+                      >
+                        Döntő
+                      </button>
+                    </div>
+                  </div>
+                  {knockoutBracketData ? (
+                    <div className="flex flex-col items-center gap-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24 w-full max-w-6xl">
+                        {/* Left column */}
+                        <div className="space-y-6">
+                          {(() => {
+                            let matchups: any[] = [];
+                            if (playoffRoundTab === 'quarter') {
+                              matchups = knockoutBracket?.quarterfinals || [];
+                            } else if (playoffRoundTab === 'semi') {
+                              matchups = knockoutBracket?.semifinals || [];
+                            } else if (playoffRoundTab === 'final') {
+                              matchups = knockoutBracket?.finals || [];
+                            }
+                            
+                            const endIdx = playoffRoundTab === 'quarter' ? 2 : matchups.length;
+                            return matchups.slice(0, endIdx).map((matchup: any, matchupIdx: number) => {
+                              const matchupWithMatches = knockoutMatchupsWithMatches.find((m: any) => {
+                                const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort();
+                                const mTeamIds = [m.homeTeamId, m.awayTeamId].sort();
+                                return teamIds[0] === mTeamIds[0] && teamIds[1] === mTeamIds[1];
+                              });
+                              
+                              const homeTeam = knockoutBracketData.teams.find((t: any) => t.teamId === matchup.homeTeamId);
+                              const awayTeam = knockoutBracketData.teams.find((t: any) => t.teamId === matchup.awayTeamId);
+                              
+                              let pairTeam0IsHome = true;
+                              if (matchupWithMatches && homeTeam && awayTeam) {
+                                pairTeam0IsHome = matchupWithMatches.homeTeamId === homeTeam.teamId;
+                              }
+                              
+                              let team0Wins = 0;
+                              let team1Wins = 0;
+                              if (matchupWithMatches && matchupWithMatches.matches) {
+                                matchupWithMatches.matches.forEach((match: any, matchIdx: number) => {
+                                  if (match.homeScore !== null && match.awayScore !== null) {
+                                    const matchNumber = matchIdx + 1;
+                                    const isOddMatch = matchNumber % 2 === 1;
+                                    const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                    
+                                    if (match.homeScore > match.awayScore) {
+                                      if (isTeam0HomeThisMatch) team0Wins++;
+                                      else team1Wins++;
+                                    } else if (match.awayScore > match.homeScore) {
+                                      if (isTeam0HomeThisMatch) team1Wins++;
+                                      else team0Wins++;
+                                    }
+                                  }
+                                });
+                              } else if (matchupWithMatches) {
+                                team0Wins = pairTeam0IsHome ? matchupWithMatches.homeWins : matchupWithMatches.awayWins;
+                                team1Wins = pairTeam0IsHome ? matchupWithMatches.awayWins : matchupWithMatches.homeWins;
+                              }
+                              
+                              const isAfterFirstMatchup = playoffRoundTab === 'quarter' && matchupIdx === 0;
+                              
+                              return (
+                                <div key={matchupIdx} className={`relative ${isAfterFirstMatchup ? 'mb-20' : ''}`}>
+                                  {[homeTeam, awayTeam].map((team: any, itemIndex: number) => {
+                                    if (!team) return null;
+                                    const wins = itemIndex === 0 ? team0Wins : team1Wins;
+                                    const isWinner = matchup.winnerId === team.teamId;
+                                    const seed = knockoutBracketData.teams.findIndex((t: any) => t.teamId === team.teamId) + 1;
+                                    
+                                    return (
+                                      <div key={itemIndex} className={`relative ${itemIndex === 0 ? 'mb-3' : ''}`}>
+                                        <div className={`bg-gradient-to-r from-[#ff5c1a]/20 via-[#ff5c1a]/10 to-transparent rounded-xl border-2 ${isWinner ? 'border-green-500' : 'border-[#ff5c1a]/60'} p-4 min-h-[110px] md:min-h-[90px] flex flex-col justify-center hover:border-[#ff5c1a] hover:shadow-lg hover:shadow-[#ff5c1a]/30 transition-all`}>
+                                          <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                              {seed && (
+                                                <span className={`${bebasNeue.className} text-[#ff5c1a] font-bold text-xl flex-shrink-0`}>
+                                                  {seed}.
+                                                </span>
+                                              )}
+                                              <span className={`${bebasNeue.className} text-white font-semibold text-lg md:text-xl truncate tracking-wide ${isWinner ? 'text-green-400' : ''}`}>
+                                                {team.name.toUpperCase()}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 flex-shrink-0">
+                                              {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                                <span className={`${bebasNeue.className} text-3xl md:text-4xl font-bold ${wins > (itemIndex === 0 ? team1Wins : team0Wins) ? 'text-[#ff5c1a]' : 'text-white/60'}`}>
+                                                  {wins}
+                                                </span>
+                                              )}
+                                              <Image 
+                                                src={team.logo || '/elitelogo.png'} 
+                                                alt={team.name} 
+                                                width={48} 
+                                                height={48} 
+                                                className="object-contain w-12 h-12 md:w-14 md:h-14"
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {itemIndex === 0 && (
+                                          <>
+                                            {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                              <div className="pt-3">
+                                                <div className="flex items-center justify-center gap-2 text-sm text-white/80">
+                                                  <span className="text-white/60">
+                                                    {matchupWithMatches.matches.slice(0, 7).map((match: any, matchIdx: number) => {
+                                                      const homeScore = match.homeScore ?? 0;
+                                                      const awayScore = match.awayScore ?? 0;
+                                                      
+                                                      const matchNumber = matchIdx + 1;
+                                                      const isOddMatch = matchNumber % 2 === 1;
+                                                      const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                                      
+                                                      let displayScore0, displayScore1;
+                                                      if (isTeam0HomeThisMatch) {
+                                                        displayScore0 = homeScore;
+                                                        displayScore1 = awayScore;
+                                                      } else {
+                                                        displayScore0 = awayScore;
+                                                        displayScore1 = homeScore;
+                                                      }
+                                                      
+                                                      return (
+                                                        <span key={matchIdx}>
+                                                          {displayScore0}-{displayScore1}
+                                                          {matchIdx < Math.min(matchupWithMatches.matches.length, 7) - 1 ? ', ' : ''}
+                                                        </span>
+                                                      );
+                                                    })}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                        {/* Right column */}
+                        <div className="space-y-6">
+                          {(() => {
+                            let matchups: any[] = [];
+                            if (playoffRoundTab === 'quarter') {
+                              matchups = knockoutBracket?.quarterfinals || [];
+                            } else if (playoffRoundTab === 'semi') {
+                              matchups = knockoutBracket?.semifinals || [];
+                            } else if (playoffRoundTab === 'final') {
+                              matchups = knockoutBracket?.finals || [];
+                            }
+                            
+                            const startIdx = playoffRoundTab === 'quarter' ? 2 : 0;
+                            return matchups.slice(startIdx).map((matchup: any, matchupIdx: number) => {
+                              const matchupWithMatches = knockoutMatchupsWithMatches.find((m: any) => {
+                                const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort();
+                                const mTeamIds = [m.homeTeamId, m.awayTeamId].sort();
+                                return teamIds[0] === mTeamIds[0] && teamIds[1] === mTeamIds[1];
+                              });
+                              
+                              const homeTeam = knockoutBracketData.teams.find((t: any) => t.teamId === matchup.homeTeamId);
+                              const awayTeam = knockoutBracketData.teams.find((t: any) => t.teamId === matchup.awayTeamId);
+                              
+                              let pairTeam0IsHome = true;
+                              if (matchupWithMatches && homeTeam && awayTeam) {
+                                pairTeam0IsHome = matchupWithMatches.homeTeamId === homeTeam.teamId;
+                              }
+                              
+                              let team0Wins = 0;
+                              let team1Wins = 0;
+                              if (matchupWithMatches && matchupWithMatches.matches) {
+                                matchupWithMatches.matches.forEach((match: any, matchIdx: number) => {
+                                  if (match.homeScore !== null && match.awayScore !== null) {
+                                    const matchNumber = matchIdx + 1;
+                                    const isOddMatch = matchNumber % 2 === 1;
+                                    const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                    
+                                    if (match.homeScore > match.awayScore) {
+                                      if (isTeam0HomeThisMatch) team0Wins++;
+                                      else team1Wins++;
+                                    } else if (match.awayScore > match.homeScore) {
+                                      if (isTeam0HomeThisMatch) team1Wins++;
+                                      else team0Wins++;
+                                    }
+                                  }
+                                });
+                              } else if (matchupWithMatches) {
+                                team0Wins = pairTeam0IsHome ? matchupWithMatches.homeWins : matchupWithMatches.awayWins;
+                                team1Wins = pairTeam0IsHome ? matchupWithMatches.awayWins : matchupWithMatches.homeWins;
+                              }
+                              
+                              const isAfterFirstMatchup = playoffRoundTab === 'quarter' && matchupIdx === 0;
+                              
+                              return (
+                                <div key={matchupIdx} className={`relative ${isAfterFirstMatchup ? 'mb-20' : ''}`}>
+                                  {[homeTeam, awayTeam].map((team: any, itemIndex: number) => {
+                                    if (!team) return null;
+                                    const wins = itemIndex === 0 ? team0Wins : team1Wins;
+                                    const isWinner = matchup.winnerId === team.teamId;
+                                    const seed = knockoutBracketData.teams.findIndex((t: any) => t.teamId === team.teamId) + 1;
+                                    
+                                    return (
+                                      <div key={itemIndex} className={`relative ${itemIndex === 0 ? 'mb-3' : ''}`}>
+                                        <div className={`bg-gradient-to-r from-transparent via-[#ff5c1a]/10 to-[#ff5c1a]/20 rounded-xl border-2 ${isWinner ? 'border-green-500' : 'border-[#ff5c1a]/60'} p-4 min-h-[110px] md:min-h-[90px] flex flex-col justify-center hover:border-[#ff5c1a] hover:shadow-lg hover:shadow-[#ff5c1a]/30 transition-all`}>
+                                          <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                              {seed && (
+                                                <span className={`${bebasNeue.className} text-[#ff5c1a] font-bold text-xl flex-shrink-0`}>
+                                                  {seed}.
+                                                </span>
+                                              )}
+                                              <span className={`${bebasNeue.className} text-white font-semibold text-lg md:text-xl truncate tracking-wide ${isWinner ? 'text-green-400' : ''}`}>
+                                                {team.name.toUpperCase()}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 flex-shrink-0">
+                                              {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                                <span className={`${bebasNeue.className} text-3xl md:text-4xl font-bold ${wins > (itemIndex === 0 ? team1Wins : team0Wins) ? 'text-[#ff5c1a]' : 'text-white/60'}`}>
+                                                  {wins}
+                                                </span>
+                                              )}
+                                              <Image 
+                                                src={team.logo || '/elitelogo.png'} 
+                                                alt={team.name} 
+                                                width={48} 
+                                                height={48} 
+                                                className="object-contain w-12 h-12 md:w-14 md:h-14"
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {itemIndex === 0 && (
+                                          <>
+                                            {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                                              <div className="pt-3">
+                                                <div className="flex items-center justify-center gap-2 text-sm text-white/80">
+                                                  <span className="text-white/60">
+                                                    {matchupWithMatches.matches.slice(0, 7).map((match: any, matchIdx: number) => {
+                                                      const homeScore = match.homeScore ?? 0;
+                                                      const awayScore = match.awayScore ?? 0;
+                                                      
+                                                      const matchNumber = matchIdx + 1;
+                                                      const isOddMatch = matchNumber % 2 === 1;
+                                                      const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                                      
+                                                      let displayScore0, displayScore1;
+                                                      if (isTeam0HomeThisMatch) {
+                                                        displayScore0 = homeScore;
+                                                        displayScore1 = awayScore;
+                                                      } else {
+                                                        displayScore0 = awayScore;
+                                                        displayScore1 = homeScore;
+                                                      }
+                                                      
+                                                      return (
+                                                        <span key={matchIdx}>
+                                                          {displayScore0}-{displayScore1}
+                                                          {matchIdx < Math.min(matchupWithMatches.matches.length, 7) - 1 ? ', ' : ''}
+                                                        </span>
+                                                      );
+                                                    })}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="text-white/60">A playoff bracket betöltése...</div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-8">
                   {playoffGroups?.upper && playoffGroups.upper.standings && playoffGroups.upper.standings.length > 0 && (

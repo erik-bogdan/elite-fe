@@ -335,6 +335,61 @@ export const championshipApi = createApi({
       }),
       invalidatesTags: ['Championship'],
     }),
+    generateKnockoutPlayoffMatches: builder.mutation<
+      { matchups: Array<{ homeTeamId: string; homeTeamName: string; awayTeamId: string; awayTeamName: string }>; knockoutRound: number; totalMatchups: number },
+      { id: string }
+    >({
+      query: ({ id }) => ({
+        url: `/championship/${id}/knockout-playoff/generate`,
+        method: 'POST',
+      }),
+    }),
+    saveKnockoutPlayoffMatches: builder.mutation<
+      { success: boolean; saved: number },
+      { id: string; bestOf: number; matches: Array<{ homeTeamId: string; awayTeamId: string; matchNumber: number; knockoutRound: number; date?: string; time?: string; table: number }> }
+    >({
+      query: ({ id, bestOf, matches }) => ({
+        url: `/championship/${id}/knockout-playoff/save`,
+        method: 'POST',
+        body: { bestOf, matches },
+      }),
+      invalidatesTags: ['Championship'],
+    }),
+    getKnockoutBracket: builder.query<{
+      quarterfinals: Array<{
+        homeTeamId: string;
+        homeTeamName: string;
+        awayTeamId: string;
+        awayTeamName: string;
+        homeWins: number;
+        awayWins: number;
+        winnerId?: string;
+        isComplete: boolean;
+      }>;
+      semifinals: Array<{
+        homeTeamId: string;
+        homeTeamName: string;
+        awayTeamId: string;
+        awayTeamName: string;
+        homeWins: number;
+        awayWins: number;
+        winnerId?: string;
+        isComplete: boolean;
+      }>;
+      finals: Array<{
+        homeTeamId: string;
+        homeTeamName: string;
+        awayTeamId: string;
+        awayTeamName: string;
+        homeWins: number;
+        awayWins: number;
+        winnerId?: string;
+        isComplete: boolean;
+      }>;
+    } | null, string>({
+      query: (id) => `/championship/${id}/knockout-bracket`,
+      providesTags: ['Championship'],
+    }),
     getPlayoffMatches: builder.query<PlayoffMatchesResponse, string>({
       query: (id) => `/championship/${id}/playoff/matches`,
       providesTags: ['Championship'],
@@ -399,8 +454,11 @@ export const {
   useGetPlayoffGroupsQuery,
   usePreviewPlayoffGroupsScheduleMutation,
   useSavePlayoffGroupsScheduleMutation,
+  useGenerateKnockoutPlayoffMatchesMutation,
+  useSaveKnockoutPlayoffMatchesMutation,
   useGetPlayoffMatchesQuery,
   useGetRankSeriesQuery,
+  useGetKnockoutBracketQuery,
 } = championshipApi;
 
 export default championshipSlice.reducer; 

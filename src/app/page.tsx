@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ChampionModal from '../components/ChampionModal';
-import { useGetChampionshipsQuery, useGetLeagueTeamsQuery, useGetStandingsQuery, useGetMatchesForLeagueQuery, useGetPlayoffGroupsQuery, useGetPlayoffMatchesQuery } from '../lib/features/championship/championshipSlice';
+import { useGetChampionshipsQuery, useGetLeagueTeamsQuery, useGetStandingsQuery, useGetMatchesForLeagueQuery, useGetPlayoffGroupsQuery, useGetPlayoffMatchesQuery, useGetKnockoutBracketQuery } from '../lib/features/championship/championshipSlice';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import * as Tooltip from '@radix-ui/react-tooltip';
 const bebasNeue = Bebas_Neue({
@@ -249,8 +249,12 @@ function ChampionshipTables() {
   const { data: championships, isLoading: championshipsLoading } = useGetChampionshipsQuery();
   const [elite1Championship, setElite1Championship] = useState<any>(null);
   const [elite2Championship, setElite2Championship] = useState<any>(null);
-  const [elite1Tab, setElite1Tab] = useState<'regular' | 'playoff'>('regular');
+  const [elite1Tab, setElite1Tab] = useState<'regular' | 'playoff'>('playoff');
   const [elite2Tab, setElite2Tab] = useState<'regular' | 'playoff'>('regular');
+  const [elite1PlayoffRoundTab, setElite1PlayoffRoundTab] = useState<'quarter' | 'semi' | 'final'>('quarter');
+  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
+  const abs = (p?: string | null) => (p ? (p.startsWith('http') ? p : `${backendBase}${p}`) : '');
+  const [elite1AllMatchesIncludingPlayoff, setElite1AllMatchesIncludingPlayoff] = useState<any[]>([]);
 
   // Find ELITE1 and ELITE2 championships
   useEffect(() => {
@@ -267,21 +271,138 @@ function ChampionshipTables() {
   const { data: elite1Standings, isLoading: elite1Loading } = useGetStandingsQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id });
   const { data: elite2Standings, isLoading: elite2Loading } = useGetStandingsQuery(elite2Championship?.id || '', { skip: !elite2Championship?.id });
   
-  // Get playoff groups
-  const elite1HasPlayoff = Boolean(elite1Championship?.properties?.hasPlayoff && elite1Championship?.properties?.playoffType === 'groupped');
+  // Get playoff groups and knockout bracket
+  const elite1HasGroupedPlayoff = Boolean(elite1Championship?.properties?.hasPlayoff && elite1Championship?.properties?.playoffType === 'groupped');
+  const elite1HasKnockoutPlayoff = Boolean(elite1Championship?.properties?.hasPlayoff && elite1Championship?.properties?.playoffType === 'knockout');
   const elite2HasPlayoff = Boolean(elite2Championship?.properties?.hasPlayoff && elite2Championship?.properties?.playoffType === 'groupped');
-  const { data: elite1PlayoffGroups } = useGetPlayoffGroupsQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id || !elite1HasPlayoff });
+  const { data: elite1PlayoffGroups } = useGetPlayoffGroupsQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id || !elite1HasGroupedPlayoff });
   const { data: elite2PlayoffGroups } = useGetPlayoffGroupsQuery(elite2Championship?.id || '', { skip: !elite2Championship?.id || !elite2HasPlayoff });
+  const { data: elite1KnockoutBracket } = useGetKnockoutBracketQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id || !elite1HasKnockoutPlayoff });
+  const { data: elite1Matches } = useGetMatchesForLeagueQuery(elite1Championship?.id || '', { skip: !elite1Championship?.id });
   
-  const elite1ShowPlayoff = elite1HasPlayoff && Boolean(elite1PlayoffGroups?.enabled && elite1PlayoffGroups?.ready);
+  // Check if all regular season matches are completed for knockout playoff
+  const elite1AllRegularMatchesCompleted = useMemo(() => {
+    if (!elite1Matches || !Array.isArray(elite1Matches)) return false;
+    const regularMatches = elite1Matches.filter((row: any) => !row.match?.isPlayoffMatch);
+    if (regularMatches.length === 0) return false;
+    return regularMatches.every((row: any) => row.match?.matchStatus === 'completed');
+  }, [elite1Matches]);
+  
+  const elite1ShowGroupedPlayoff = elite1HasGroupedPlayoff && Boolean(elite1PlayoffGroups?.enabled && elite1PlayoffGroups?.ready);
+  const elite1ShowKnockoutPlayoff = elite1HasKnockoutPlayoff && elite1AllRegularMatchesCompleted;
+  const elite1ShowPlayoff = elite1ShowGroupedPlayoff || elite1ShowKnockoutPlayoff;
   const elite2ShowPlayoff = elite2HasPlayoff && Boolean(elite2PlayoffGroups?.enabled && elite2PlayoffGroups?.ready);
   
-  // Auto-switch to playoff tab when available
+  // Fetch all matches including playoff for Elite1
   useEffect(() => {
-    if (elite1ShowPlayoff && elite1Tab === 'regular') {
-      setElite1Tab('playoff');
+    if (!elite1Championship?.id) {
+      setElite1AllMatchesIncludingPlayoff([]);
+      return;
     }
-  }, [elite1ShowPlayoff]);
+    let mounted = true;
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set('leagueId', elite1Championship.id);
+        params.set('playoff', 'all');
+        params.set('page', '1');
+        params.set('pageSize', '1000');
+        const url = `${backendBase}/api/matches?${params.toString()}`;
+        const resp = await fetch(url, { credentials: 'include' });
+        if (resp.ok && mounted) {
+          const data = await resp.json();
+          setElite1AllMatchesIncludingPlayoff(data.items || []);
+        } else if (mounted) {
+          setElite1AllMatchesIncludingPlayoff([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch all matches:', error);
+        if (mounted) setElite1AllMatchesIncludingPlayoff([]);
+      }
+    })();
+    return () => { mounted = false };
+  }, [elite1Championship?.id, backendBase]);
+  
+  // Prepare knockout bracket data for Elite1
+  const elite1KnockoutBracketData = useMemo(() => {
+    if (!elite1HasKnockoutPlayoff || !elite1Standings?.standings || !elite1Matches) return null;
+    
+    const allMatches = Array.isArray(elite1Matches) ? elite1Matches : [];
+    const playoffMatches = allMatches.filter((row: any) => row.match?.isPlayoffMatch);
+    
+    const teams = elite1Standings.standings.map((s: any, idx: number) => ({
+      seed: idx + 1,
+      teamId: s.teamId,
+      name: s.name,
+      logo: abs(s.logo),
+    }));
+
+    return { teams, playoffMatches };
+  }, [elite1HasKnockoutPlayoff, elite1Standings, elite1Matches, abs]);
+  
+  // Create matchup structure with matches for bracket display
+  const elite1KnockoutMatchupsWithMatches = useMemo(() => {
+    if (!elite1KnockoutBracket || !elite1AllMatchesIncludingPlayoff || elite1AllMatchesIncludingPlayoff.length === 0) return [];
+    
+    const playoffMatches = elite1AllMatchesIncludingPlayoff
+      .filter((row: any) => row?.match?.isPlayoffMatch === true)
+      .map((row: any) => ({
+        id: row.match?.id,
+        homeTeamId: row.match?.homeTeamId,
+        awayTeamId: row.match?.awayTeamId,
+        homeScore: row.match?.homeTeamScore,
+        awayScore: row.match?.awayTeamScore,
+        round: row.match?.matchRound,
+      }));
+    
+    const matchupMap = new Map<string, any[]>();
+    
+    playoffMatches.forEach((m: any) => {
+      const teamIds = [m.homeTeamId, m.awayTeamId].sort().join('-');
+      if (!matchupMap.has(teamIds)) {
+        matchupMap.set(teamIds, []);
+      }
+      matchupMap.get(teamIds)!.push(m);
+    });
+    
+    let currentMatchups: any[] = [];
+    if (elite1PlayoffRoundTab === 'quarter') {
+      currentMatchups = elite1KnockoutBracket?.quarterfinals || [];
+    } else if (elite1PlayoffRoundTab === 'semi') {
+      currentMatchups = elite1KnockoutBracket?.semifinals || [];
+    } else if (elite1PlayoffRoundTab === 'final') {
+      currentMatchups = elite1KnockoutBracket?.finals || [];
+    }
+    
+    return currentMatchups.map((matchup: any) => {
+      const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort().join('-');
+      const matches = matchupMap.get(teamIds) || [];
+      
+      const sortedMatches = matches.sort((a: any, b: any) => {
+        const aRound = a.round || 0;
+        const bRound = b.round || 0;
+        if (aRound !== bRound) return aRound - bRound;
+        return 0;
+      });
+      
+      return {
+        ...matchup,
+        matches: sortedMatches.map((m: any) => ({
+          id: m.id,
+          homeScore: m.homeScore,
+          awayScore: m.awayScore,
+          round: m.round,
+        })),
+      };
+    });
+  }, [elite1KnockoutBracket, elite1AllMatchesIncludingPlayoff, elite1PlayoffRoundTab]);
+  
+  // Auto-switch to playoff tab when available (default is already playoff)
+  useEffect(() => {
+    if (!elite1ShowPlayoff && elite1Tab === 'playoff') {
+      setElite1Tab('regular');
+    }
+  }, [elite1ShowPlayoff, elite1Tab]);
   
   useEffect(() => {
     if (elite2ShowPlayoff && elite2Tab === 'regular') {
@@ -296,6 +417,211 @@ function ChampionshipTables() {
       </div>
     );
   }
+
+  // Helper function to render knockout bracket
+  const renderKnockoutBracket = (bracketData: any, knockoutBracket: any, matchupsWithMatches: any[], color: string) => {
+    if (!bracketData || !knockoutBracket) {
+      return (
+        <div className="text-center py-8 md:py-12">
+          <div className="text-white/70 text-xs sm:text-sm md:text-base">
+            A playoff bracket betöltése...
+          </div>
+        </div>
+      );
+    }
+
+    let matchups: any[] = [];
+    let leftSeeds: number[] = [];
+    let rightSeeds: number[] = [];
+    
+    if (elite1PlayoffRoundTab === 'quarter') {
+      matchups = knockoutBracket?.quarterfinals || [];
+      leftSeeds = [1, 8, 5, 4].filter(seed => seed <= (bracketData?.teams.length || 0));
+      rightSeeds = [3, 6, 7, 2].filter(seed => seed <= (bracketData?.teams.length || 0));
+    } else if (elite1PlayoffRoundTab === 'semi') {
+      matchups = knockoutBracket?.semifinals || [];
+    } else if (elite1PlayoffRoundTab === 'final') {
+      matchups = knockoutBracket?.finals || [];
+    }
+
+    const renderBracketColumn = (isLeft: boolean) => {
+      const seeds = isLeft ? leftSeeds : rightSeeds;
+      const startIdx = isLeft ? 0 : (elite1PlayoffRoundTab === 'quarter' ? 2 : 0);
+      const endIdx = isLeft ? (elite1PlayoffRoundTab === 'quarter' ? 2 : matchups.length) : matchups.length;
+      const columnMatchups = matchups.slice(startIdx, endIdx);
+      
+      return (
+        <div className="space-y-6">
+          {columnMatchups.map((matchup: any, matchupIdx: number) => {
+            const matchupWithMatches = matchupsWithMatches.find((m: any) => {
+              const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort();
+              const mTeamIds = [m.homeTeamId, m.awayTeamId].sort();
+              return teamIds[0] === mTeamIds[0] && teamIds[1] === mTeamIds[1];
+            });
+            
+            const homeTeam = bracketData.teams.find((t: any) => t.teamId === matchup.homeTeamId);
+            const awayTeam = bracketData.teams.find((t: any) => t.teamId === matchup.awayTeamId);
+            
+            let pairTeam0IsHome = true;
+            if (matchupWithMatches && homeTeam && awayTeam) {
+              pairTeam0IsHome = matchupWithMatches.homeTeamId === homeTeam.teamId;
+            }
+            
+            let team0Wins = 0;
+            let team1Wins = 0;
+            if (matchupWithMatches && matchupWithMatches.matches) {
+              matchupWithMatches.matches.forEach((match: any, matchIdx: number) => {
+                if (match.homeScore !== null && match.awayScore !== null) {
+                  const matchNumber = matchIdx + 1;
+                  const isOddMatch = matchNumber % 2 === 1;
+                  const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                  
+                  if (match.homeScore > match.awayScore) {
+                    if (isTeam0HomeThisMatch) team0Wins++;
+                    else team1Wins++;
+                  } else if (match.awayScore > match.homeScore) {
+                    if (isTeam0HomeThisMatch) team1Wins++;
+                    else team0Wins++;
+                  }
+                }
+              });
+            } else if (matchupWithMatches) {
+              team0Wins = pairTeam0IsHome ? matchupWithMatches.homeWins : matchupWithMatches.awayWins;
+              team1Wins = pairTeam0IsHome ? matchupWithMatches.awayWins : matchupWithMatches.homeWins;
+            }
+            
+            const isAfterFirstMatchup = elite1PlayoffRoundTab === 'quarter' && matchupIdx === 0;
+            
+            return (
+              <div key={matchupIdx} className={`relative ${isAfterFirstMatchup ? 'mb-20' : ''}`}>
+                {[homeTeam, awayTeam].map((team: any, itemIndex: number) => {
+                  if (!team) return null;
+                  const wins = itemIndex === 0 ? team0Wins : team1Wins;
+                  const isWinner = matchup.winnerId === team.teamId;
+                  const seed = bracketData.teams.findIndex((t: any) => t.teamId === team.teamId) + 1;
+                  
+                  return (
+                    <div key={itemIndex} className={`relative ${itemIndex === 0 ? 'mb-3' : ''}`}>
+                      <div className={`bg-gradient-to-r ${isLeft ? 'from-[#ff5c1a]/20 via-[#ff5c1a]/10 to-transparent' : 'from-transparent via-[#ff5c1a]/10 to-[#ff5c1a]/20'} rounded-xl border-2 ${isWinner ? 'border-green-500' : 'border-[#ff5c1a]/60'} p-4 min-h-[110px] md:min-h-[90px] flex flex-col justify-center hover:border-[#ff5c1a] hover:shadow-lg hover:shadow-[#ff5c1a]/30 transition-all`}>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {seed && (
+                              <span className={`${bebasNeue.className} text-[#ff5c1a] font-bold text-xl flex-shrink-0`}>
+                                {seed}.
+                              </span>
+                            )}
+                            <span className={`${bebasNeue.className} text-white font-semibold text-lg md:text-xl truncate tracking-wide ${isWinner ? 'text-green-400' : ''}`}>
+                              {team.name.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                              <span className={`${bebasNeue.className} text-3xl md:text-4xl font-bold ${wins > (itemIndex === 0 ? team1Wins : team0Wins) ? 'text-[#ff5c1a]' : 'text-white/60'}`}>
+                                {wins}
+                              </span>
+                            )}
+                            <Image 
+                              src={team.logo || '/elitelogo.png'} 
+                              alt={team.name} 
+                              width={48} 
+                              height={48} 
+                              className="object-contain w-12 h-12 md:w-14 md:h-14"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      {itemIndex === 0 && (
+                        <>
+                          {matchupWithMatches && matchupWithMatches.matches && matchupWithMatches.matches.length > 0 && (
+                            <div className="pt-3">
+                              <div className="flex items-center justify-center gap-2 text-sm text-white/80">
+                                <span className="text-white/60">
+                                  {matchupWithMatches.matches.slice(0, 7).map((match: any, matchIdx: number) => {
+                                    const homeScore = match.homeScore ?? 0;
+                                    const awayScore = match.awayScore ?? 0;
+                                    
+                                    const matchNumber = matchIdx + 1;
+                                    const isOddMatch = matchNumber % 2 === 1;
+                                    const isTeam0HomeThisMatch = isOddMatch ? pairTeam0IsHome : !pairTeam0IsHome;
+                                    
+                                    let displayScore0, displayScore1;
+                                    if (isTeam0HomeThisMatch) {
+                                      displayScore0 = homeScore;
+                                      displayScore1 = awayScore;
+                                    } else {
+                                      displayScore0 = awayScore;
+                                      displayScore1 = homeScore;
+                                    }
+                                    
+                                    return (
+                                      <span key={matchIdx}>
+                                        {displayScore0}-{displayScore1}
+                                        {matchIdx < Math.min(matchupWithMatches.matches.length, 7) - 1 ? ', ' : ''}
+                                      </span>
+                                    );
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    return (
+      <div className="py-4">
+        <div className="text-center mb-4">
+          <h2 className={`${bebasNeue.className} text-2xl md:text-3xl text-white mb-2 tracking-wider`}>
+            PLAYOFF
+          </h2>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <button
+              onClick={() => setElite1PlayoffRoundTab('quarter')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                elite1PlayoffRoundTab === 'quarter' 
+                  ? 'bg-[#ff5c1a] text-white' 
+                  : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#ff5c1a]/30'
+              }`}
+            >
+              Negyeddöntő
+            </button>
+            <button
+              onClick={() => setElite1PlayoffRoundTab('semi')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                elite1PlayoffRoundTab === 'semi' 
+                  ? 'bg-[#ff5c1a] text-white' 
+                  : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#ff5c1a]/30'
+              }`}
+            >
+              Elődöntő
+            </button>
+            <button
+              onClick={() => setElite1PlayoffRoundTab('final')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                elite1PlayoffRoundTab === 'final' 
+                  ? 'bg-[#ff5c1a] text-white' 
+                  : 'bg-black/40 text-white/60 hover:text-white/80 border border-[#ff5c1a]/30'
+              }`}
+            >
+              Döntő
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24 w-full max-w-6xl mx-auto">
+          {renderBracketColumn(true)}
+          {renderBracketColumn(false)}
+        </div>
+      </div>
+    );
+  };
 
   // Helper function to render playoff tables
   const renderPlayoffTables = (playoffGroups: any, color: string) => {
@@ -528,7 +854,7 @@ function ChampionshipTables() {
           </div>
 
           {/* Tab Switcher */}
-          {elite1ShowPlayoff && (
+          {(elite1ShowPlayoff || elite1ShowKnockoutPlayoff) && (
             <div className="flex items-center justify-center mb-6">
               <div className="flex space-x-2 bg-black/40 rounded-lg p-1 border border-[#FFDB11]/30">
                 <button
@@ -559,6 +885,8 @@ function ChampionshipTables() {
               color="#FFDB11"
               subName={elite1Championship?.subName}
             />
+          ) : elite1ShowKnockoutPlayoff ? (
+            renderKnockoutBracket(elite1KnockoutBracketData, elite1KnockoutBracket, elite1KnockoutMatchupsWithMatches, '#FFDB11')
           ) : (
             renderPlayoffTables(elite1PlayoffGroups, '#FFDB11')
           )}
@@ -753,7 +1081,7 @@ function UpcomingMatches() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'UTC'
+      timeZone: 'Europe/Budapest'
     });
   };
 
