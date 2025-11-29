@@ -71,19 +71,46 @@ export default function AdminEditMatchModal({
   const selectedA = useMemo(() => [selectedA1, selectedA2].filter(Boolean), [selectedA1, selectedA2]);
   const selectedB = useMemo(() => [selectedB1, selectedB2].filter(Boolean), [selectedB1, selectedB2]);
 
-  const isValidScore = (a: number, b: number) => {
-    if (a === 10 && b === 10) return false;
-    if (a > 10 && b < 10) return false;
-    if (b > 10 && a < 10) return false;
-    if (a > 10 && (a - 10) % 3 !== 0) return false;
-    if (b > 10 && (b - 10) % 3 !== 0) return false;
-    if (a > 10 && b > 10 && Math.abs(a - b) > 3) return false;
+  // Validation rules – align with player result modal
+  const isValidScore = (scoreA: number, scoreB: number) => {
+    // 10-10 nem lehetséges
+    if (scoreA === 10 && scoreB === 10) return false;
+
+    // Hosszabbítás: mindkét csapat 10 felett
+    if (scoreA > 10 && scoreB > 10) {
+      const higher = Math.max(scoreA, scoreB);
+      const lower = Math.min(scoreA, scoreB);
+      // Győztes pontszáma 3-mal osztható (13, 16, 19, ...)
+      if ((higher - 10) % 3 !== 0) return false;
+      // Nem lehet döntetlen
+      if (higher === lower) return false;
+      // Max 3-as különbség
+      if (higher - lower > 3) return false;
+    }
+
+    // Ha az egyik 10, a másik nem mehet 13 fölé
+    if (scoreA === 10 && scoreB > 13) return false;
+    if (scoreB === 10 && scoreA > 13) return false;
+
+    // Hosszabbításban mindkettő legalább 10
+    if (scoreA > 10 && scoreB < 10) return false;
+    if (scoreB > 10 && scoreA < 10) return false;
+
     return true;
   };
+
   const winner = useMemo(() => {
     if (!isValidScore(cupsA, cupsB)) return '';
-    if (cupsA >= 10 && cupsA > cupsB) return meta?.homeTeam?.name || 'Hazai';
-    if (cupsB >= 10 && cupsB > cupsA) return meta?.awayTeam?.name || 'Vendég';
+    const homeName = meta?.homeTeam?.name || 'Hazai';
+    const awayName = meta?.awayTeam?.name || 'Vendég';
+
+    if (cupsA === 10 && cupsB < 10) return homeName;
+    if (cupsB === 10 && cupsA < 10) return awayName;
+    if (cupsA > 10 && cupsB < cupsA) return homeName;
+    if (cupsB > 10 && cupsA < cupsB) return awayName;
+    if (cupsA > 10 && cupsB > 10) {
+      return cupsA > cupsB ? homeName : awayName;
+    }
     return '';
   }, [cupsA, cupsB, meta]);
 
@@ -213,8 +240,18 @@ export default function AdminEditMatchModal({
           {/* Middle result badge */}
           <div className="flex flex-col items-center justify-center gap-2">
             <div className={`${bebasNeue.className} text-3xl text-[#ff5c1a]`}>VS</div>
-            {winner ? <div className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">Győztes: {winner}</div> : <div className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-sm">Eredmény szerkesztése</div>}
-            {!isValidScore(cupsA, cupsB) && <div className="text-red-400 text-xs">Ellenőrizd a szabályos eredményt</div>}
+            {winner ? (
+              <div className="px-3 py-1 rounded-full bg-green-500/20 text-green-300 text-sm">
+                Győztes: {winner}
+              </div>
+            ) : (
+              <div className="px-3 py-1 rounded-full bg-white/10 text-white/80 text-sm">
+                Eredmény szerkesztése
+              </div>
+            )}
+            {!isValidScore(cupsA, cupsB) && (cupsA > 0 || cupsB > 0) && (
+              <div className="text-red-400 text-xs">Érvénytelen eredmény – ellenőrizd a poharak számát.</div>
+            )}
           </div>
 
           {/* Away team card */}
