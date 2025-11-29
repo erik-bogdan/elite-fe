@@ -485,9 +485,9 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
                   </div>
                   {knockoutBracketData ? (
                     <div className="flex flex-col items-center gap-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24 w-full max-w-6xl">
+                      <div className={`grid ${playoffRoundTab === 'final' ? 'grid-cols-1 max-w-4xl' : 'grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24'} w-full max-w-6xl`}>
                         {/* Left column */}
-                        <div className="space-y-6">
+                        <div className={`space-y-6 ${playoffRoundTab === 'final' ? 'mx-auto min-w-[450px]' : ''}`}>
                           {(() => {
                             let matchups: any[] = [];
                             if (playoffRoundTab === 'quarter') {
@@ -498,7 +498,9 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
                               matchups = knockoutBracket?.finals || [];
                             }
                             
-                            const endIdx = playoffRoundTab === 'quarter' ? 2 : matchups.length;
+                            const endIdx = playoffRoundTab === 'quarter' 
+                              ? Math.min(2, matchups.length) 
+                              : Math.ceil(matchups.length / 2);
                             return matchups.slice(0, endIdx).map((matchup: any, matchupIdx: number) => {
                               const matchupWithMatches = knockoutMatchupsWithMatches.find((m: any) => {
                                 const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort();
@@ -633,7 +635,9 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
                               matchups = knockoutBracket?.finals || [];
                             }
                             
-                            const startIdx = playoffRoundTab === 'quarter' ? 2 : 0;
+                            const startIdx = playoffRoundTab === 'quarter' 
+                              ? Math.min(2, matchups.length) 
+                              : Math.ceil(matchups.length / 2);
                             return matchups.slice(startIdx).map((matchup: any, matchupIdx: number) => {
                               const matchupWithMatches = knockoutMatchupsWithMatches.find((m: any) => {
                                 const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort();

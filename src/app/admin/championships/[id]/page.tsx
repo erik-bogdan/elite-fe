@@ -1236,10 +1236,10 @@ export default function ChampionshipView() {
             </div>
             {knockoutBracketData ? (
               <div className="flex flex-col items-center gap-8">
-                {/* Bracket structure - two columns with better spacing */}
-                <div className="grid grid-cols-2 gap-8 md:gap-16 lg:gap-24 w-full max-w-6xl">
+                {/* Bracket structure - two columns with better spacing, or single centered column for finals */}
+                <div className={`grid ${playoffRoundTab === 'final' ? 'grid-cols-1 max-w-4xl' : 'grid-cols-2 gap-8 md:gap-16 lg:gap-24'} w-full max-w-6xl`}>
                   {/* Left column */}
-                  <div className="space-y-6">
+                  <div className={`space-y-6 ${playoffRoundTab === 'final' ? 'mx-auto min-w-[450px]' : ''}`}>
                     {(() => {
                       let leftSeeds: number[] = [];
                       let teamsToShow: number = 0;
@@ -1252,8 +1252,8 @@ export default function ChampionshipView() {
                         // Semifinals: 2 empty positions
                         teamsToShow = 2;
                       } else if (playoffRoundTab === 'final') {
-                        // Finals: 1 empty position
-                        teamsToShow = 1;
+                        // Finals: 2 teams in a pair
+                        teamsToShow = 2;
                       }
                       
                       // Group teams into pairs for matchups
@@ -1273,14 +1273,9 @@ export default function ChampionshipView() {
                             seed = team?.seed ?? null;
                           } else if (playoffRoundTab === 'final') {
                             const finalTeams = knockoutAdvancers?.final || [];
-                            const finalTeam = finalTeams[0] || null;
-                            if (j === 0) {
-                              team = finalTeam;
-                              seed = finalTeam?.seed ?? null;
-                            } else {
-                              team = null;
-                              seed = null;
-                            }
+                            const finalTeam = finalTeams[j] || null;
+                            team = finalTeam;
+                            seed = finalTeam?.seed ?? null;
                           }
                           
                           pair.push({ index: i + j, team, seed });
@@ -1454,8 +1449,8 @@ export default function ChampionshipView() {
                         // Semifinals: 2 empty positions
                         teamsToShow = 2;
                       } else if (playoffRoundTab === 'final') {
-                        // Finals: 1 empty position
-                        teamsToShow = 1;
+                        // Finals: no teams in right column (all in left)
+                        teamsToShow = 0;
                       }
                       
                       // Group teams into pairs for matchups
@@ -1474,15 +1469,9 @@ export default function ChampionshipView() {
                             team = advancers[i + j] || null;
                             seed = team?.seed ?? null;
                           } else if (playoffRoundTab === 'final') {
-                            const finalTeams = knockoutAdvancers?.final || [];
-                            const finalTeam = finalTeams[1] || null;
-                            if (j === 0) {
-                              team = finalTeam;
-                              seed = finalTeam?.seed ?? null;
-                            } else {
-                              team = null;
-                              seed = null;
-                            }
+                            // Finals: no teams in right column
+                            team = null;
+                            seed = null;
                           }
                           
                           pair.push({ index: i + j, team, seed });

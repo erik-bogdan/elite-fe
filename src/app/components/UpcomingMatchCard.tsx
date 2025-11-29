@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bebas_Neue } from "next/font/google";
 import { FiChevronDown, FiChevronUp, FiShare2, FiClock, FiMapPin, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
 import { Circle } from "lucide-react";
@@ -34,6 +34,7 @@ interface UpcomingMatchCardProps {
   onEnterResult?: () => void;
   onShare?: () => void;
   onDelayRequest?: () => void;
+  collapseSignal?: number;
 }
 
 export default function UpcomingMatchCard({
@@ -56,8 +57,12 @@ export default function UpcomingMatchCard({
   onEnterResult,
   onShare,
   onDelayRequest,
+  collapseSignal,
 }: UpcomingMatchCardProps) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    setOpen(false);
+  }, [collapseSignal]);
   const router = useRouter();
 
   return (

@@ -249,7 +249,7 @@ function ChampionshipTables() {
   const { data: championships, isLoading: championshipsLoading } = useGetChampionshipsQuery();
   const [elite1Championship, setElite1Championship] = useState<any>(null);
   const [elite2Championship, setElite2Championship] = useState<any>(null);
-  const [elite1Tab, setElite1Tab] = useState<'regular' | 'playoff'>('playoff');
+  const [elite1Tab, setElite1Tab] = useState<'regular' | 'playoff'>('regular');
   const [elite2Tab, setElite2Tab] = useState<'regular' | 'playoff'>('regular');
   const [elite1PlayoffRoundTab, setElite1PlayoffRoundTab] = useState<'quarter' | 'semi' | 'final'>('quarter');
   const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
@@ -397,10 +397,15 @@ function ChampionshipTables() {
     });
   }, [elite1KnockoutBracket, elite1AllMatchesIncludingPlayoff, elite1PlayoffRoundTab]);
   
-  // Auto-switch to playoff tab when available (default is already playoff)
+  // Auto-switch to playoff tab when available
+  const elite1PlayoffDefaulted = useRef(false);
   useEffect(() => {
-    if (!elite1ShowPlayoff && elite1Tab === 'playoff') {
+    if (elite1ShowPlayoff && !elite1PlayoffDefaulted.current) {
+      setElite1Tab('playoff');
+      elite1PlayoffDefaulted.current = true;
+    } else if (!elite1ShowPlayoff && elite1Tab === 'playoff') {
       setElite1Tab('regular');
+      elite1PlayoffDefaulted.current = false;
     }
   }, [elite1ShowPlayoff, elite1Tab]);
   
@@ -446,10 +451,22 @@ function ChampionshipTables() {
 
     const renderBracketColumn = (isLeft: boolean) => {
       const seeds = isLeft ? leftSeeds : rightSeeds;
-      const startIdx = isLeft ? 0 : (elite1PlayoffRoundTab === 'quarter' ? 2 : 0);
-      const endIdx = isLeft ? (elite1PlayoffRoundTab === 'quarter' ? 2 : matchups.length) : matchups.length;
-      const columnMatchups = matchups.slice(startIdx, endIdx);
-      
+      const splitPoint = elite1PlayoffRoundTab === 'quarter'
+        ? Math.min(2, matchups.length)
+        : Math.ceil(matchups.length / 2);
+      const leftMatchups = matchups.slice(0, splitPoint);
+      const rightMatchups = matchups.slice(splitPoint);
+      const columnMatchups = isLeft ? leftMatchups : rightMatchups;
+      if (columnMatchups.length === 0) {
+        return (
+          <div className="space-y-6">
+            <div className="text-center text-white/60 text-sm py-8 border border-white/10 rounded-xl">
+              Nincs párosítás
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="space-y-6">
           {columnMatchups.map((matchup: any, matchupIdx: number) => {
@@ -615,9 +632,11 @@ function ChampionshipTables() {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24 w-full max-w-6xl mx-auto">
-          {renderBracketColumn(true)}
-          {renderBracketColumn(false)}
+        <div className={`grid ${elite1PlayoffRoundTab === 'final' ? 'grid-cols-1 max-w-4xl' : 'grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 lg:gap-24'} w-full max-w-6xl mx-auto`}>
+          <div className={`${elite1PlayoffRoundTab === 'final' ? 'mx-auto min-w-[450px]' : ''}`}>
+            {renderBracketColumn(true)}
+          </div>
+          {elite1PlayoffRoundTab !== 'final' && renderBracketColumn(false)}
         </div>
       </div>
     );

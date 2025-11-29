@@ -11,6 +11,7 @@ import { useGetMyLeagueQuery } from "@/lib/features/apiSlice";
 import { useGetChampionshipByIdQuery, useGetMatchesForLeagueQuery, useGetStandingsQuery, useGetMatchMetaQuery, useUpdateMatchResultMutation, useGetPlayoffMatchesQuery, useGetPlayoffGroupsQuery } from "@/lib/features/championship/championshipSlice";
 import { useGetActiveInviteQuery } from "@/lib/features/apiSlice";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 const bebasNeue = Bebas_Neue({
     weight: "400",
@@ -44,19 +45,26 @@ export default function DashboardPage() {
   const [checkingInvite, setCheckingInvite] = useState(true);
   const [upcomingCount, setUpcomingCount] = useState(5);
   const [standingsTab, setStandingsTab] = useState<'regular' | 'playoff'>('regular');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTeams, setModalTeams] = useState<{ teamA: any; teamB: any } | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<any>(null);
+  const [nickname, setNickname] = useState<string>("");
+  const [handledMatchIds, setHandledMatchIds] = useState<string[]>([]);
+  const [collapseKey, setCollapseKey] = useState(0);
   // user → my league/team
   const { data: myLeague } = useGetMyLeagueQuery();
   const leagueId = myLeague?.leagueId;
   const myTeamId = myLeague?.teamId;
   const { data: championship } = useGetChampionshipByIdQuery(leagueId!, { skip: !leagueId });
-  const { data: leagueMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
-  const { data: playoffMatches } = useGetPlayoffMatchesQuery(leagueId!, { skip: !leagueId });
+  const { data: leagueMatches, refetch: refetchLeagueMatches } = useGetMatchesForLeagueQuery(leagueId!, { skip: !leagueId });
+  const { data: playoffMatches, refetch: refetchPlayoffMatches } = useGetPlayoffMatchesQuery(leagueId!, { skip: !leagueId });
   const playoffProperties = championship?.properties;
   const hasGroupedPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'groupped');
   const hasKnockoutPlayoff = Boolean(playoffProperties?.hasPlayoff && playoffProperties?.playoffType === 'knockout');
   
   // Fetch all matches including playoff matches (for both grouped and knockout playoff)
   const [allMatchesIncludingPlayoff, setAllMatchesIncludingPlayoff] = useState<any[]>([]);
+  const [matchesRefreshKey, setMatchesRefreshKey] = useState(0);
   useEffect(() => {
     if (!leagueId) {
       setAllMatchesIncludingPlayoff([]);
@@ -88,7 +96,7 @@ export default function DashboardPage() {
       }
     })();
     return () => { mounted = false };
-  }, [leagueId]);
+  }, [leagueId, matchesRefreshKey]);
   const { data: playoffGroups } = useGetPlayoffGroupsQuery(leagueId!, { skip: !leagueId || !hasGroupedPlayoff });
   const { data: standings } = useGetStandingsQuery(leagueId!, { skip: !leagueId || !championship?.isStarted });
   const showPlayoffTab = Boolean(hasGroupedPlayoff && playoffGroups?.enabled && playoffGroups?.ready);
@@ -254,8 +262,22 @@ export default function DashboardPage() {
       .sort((a: any, b: any) => (a.when?.getTime?.() || 0) - (b.when?.getTime?.() || 0));
   }, [combinedMatches, myTeamId]);
 
-  const now = new Date().getTime();
-  const upcoming = mySortedMatches.filter(m => (m.when?.getTime?.() || 0) >= now);
+  const filteredMatches = useMemo(() => {
+    if (!handledMatchIds.length) return mySortedMatches;
+    const handledSet = new Set(handledMatchIds);
+    return mySortedMatches.filter((m) => {
+      const matchId = String(m.row.match?.id || m.row.id || '');
+      if (!matchId) return true;
+      return !handledSet.has(matchId);
+    });
+  }, [mySortedMatches, handledMatchIds]);
+
+  // Upcoming matches: all matches that are still not completed/cancelled,
+  // irrespective of whether their eredeti időpontja már elmúlt.
+  const upcoming = filteredMatches.filter((m) => {
+    const status = String(m.row.match?.matchStatus || '');
+    return status !== 'completed' && status !== 'cancelled';
+  });
   const nextMatch = upcoming[0] || null;
   const nextMatchTitle = nextMatch?.title || 'Nincs következő mérkőzés';
   const nextMatchTime = nextMatch?.when ? nextMatch.when.toLocaleString('hu-HU', { timeZone: 'UTC' }) : '';
@@ -297,10 +319,6 @@ export default function DashboardPage() {
     },
   }));
   console.log(upcomingFive);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalTeams, setModalTeams] = useState<{ teamA: any; teamB: any } | null>(null);
-  const [selectedMatch, setSelectedMatch] = useState<any>(null);
-  const [nickname, setNickname] = useState<string>("");
   
   // Match meta for modal
   const modalMatchId = selectedMatch ? String(selectedMatch.id || selectedMatch.match?.id || '') : '';
@@ -441,8 +459,20 @@ export default function DashboardPage() {
                 }
               }).unwrap();
               setModalOpen(false);
+              if (modalMatchId) {
+                setHandledMatchIds((prev) => (prev.includes(modalMatchId) ? prev : [...prev, modalMatchId]));
+              }
+              await Promise.allSettled([
+                refetchLeagueMatches ? refetchLeagueMatches() : Promise.resolve(null),
+                refetchPlayoffMatches ? refetchPlayoffMatches() : Promise.resolve(null),
+              ]);
+              setMatchesRefreshKey((prev) => prev + 1);
+              setCollapseKey((prev) => prev + 1);
+              setSelectedMatch(null);
+              toast.success('Sikeres meccs eredmény leadás!');
             } catch (e) {
               console.error(e);
+              toast.error('Nem sikerült menteni a meccs eredményét.');
             }
           }}
         />
@@ -479,6 +509,7 @@ export default function DashboardPage() {
                   delayedTable={match.delayedTable}
                   teamA={match.teamA}
                   teamB={match.teamB}
+                  collapseSignal={collapseKey}
                   onEnterResult={() => handleEnterResult(upcoming[idx].row)}
                   onShare={() => {}}
                   onDelayRequest={() => {}}

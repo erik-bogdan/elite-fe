@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Bebas_Neue } from 'next/font/google';
 import { motion } from 'framer-motion';
-import { FiList, FiClock, FiCheckCircle, FiEdit2 } from 'react-icons/fi';
+import { FiList, FiClock, FiCheckCircle, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import Select from 'react-select';
 import { useGetSeasonsQuery } from '@/lib/features/season/seasonSlice';
 import { useGetChampionshipsQuery } from '@/lib/features/championship/championshipSlice';
@@ -248,6 +248,7 @@ export default function AdminMatchesPage() {
   // modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMeta, setModalMeta] = useState<any | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; matchId: string | null; label: string }>({ open: false, matchId: null, label: '' });
   const openEdit = async (matchId: string, row: any) => {
     try {
       const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}/api/matches/${matchId}/meta`;
@@ -517,9 +518,29 @@ export default function AdminMatchesPage() {
                     <td className="px-6 py-4 text-white">{homeMvp?.nickname || homeMvp?.firstName || '-'}</td>
                     <td className="px-6 py-4 text-white">{awayMvp?.nickname || awayMvp?.firstName || '-'}</td>
                     <td className="px-6 py-4">
-                      <button onClick={() => openEdit(match.id, row)} className="p-2 text-[#ff5c1a] hover:text-[#ff7c3a] transition-colors">
-                        <FiEdit2 className="w-5 h-5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEdit(match.id, row); }}
+                          className="p-2 text-[#ff5c1a] hover:text-[#ff7c3a] transition-colors"
+                          title="Meccs szerkesztése"
+                        >
+                          <FiEdit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm({
+                              open: true,
+                              matchId: match.id,
+                              label: `${home?.name || 'Hazai'} vs ${away?.name || 'Vendég'} (${score})`,
+                            });
+                          }}
+                          className="p-2 text-red-500 hover:text-red-400 transition-colors"
+                          title="Meccs törlése"
+                        >
+                          <FiTrash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -547,6 +568,61 @@ export default function AdminMatchesPage() {
           meta={modalMeta.meta}
           onSave={handleSaveAdmin}
         />
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.open && deleteConfirm.matchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="bg-[#001a3a] border border-red-600/60 rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className={`${bebasNeue.className} text-2xl text-white mb-4`}>Meccs törlése</h3>
+            <p className="text-white mb-4">
+              Biztosan törlöd ezt a meccset?
+              <br />
+              <span className="text-[#ff5c1a] font-semibold">{deleteConfirm.label}</span>
+            </p>
+            <p className="text-red-300 text-sm mb-6">
+              A törlés végleges, az eredmény és minden kapcsolódó adat elvész.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm({ open: false, matchId: null, label: '' })}
+                className="px-4 py-2 bg-black/40 text-white rounded-lg hover:bg-black/60 transition-colors"
+              >
+                Mégsem
+              </button>
+              <button
+                onClick={async () => {
+                  if (!deleteConfirm.matchId) return;
+                  try {
+                    const base = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
+                    const resp = await fetch(`${base}/api/matches/${deleteConfirm.matchId}`, {
+                      method: 'DELETE',
+                      credentials: 'include',
+                    });
+                    if (resp.ok) {
+                      // frissítjük a listát lokálisan
+                      setData((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              items: prev.items.filter((r: any) => r.match?.id !== deleteConfirm.matchId),
+                              total: Math.max(0, (prev.total || 1) - 1),
+                            }
+                          : prev,
+                      );
+                    }
+                  } catch {
+                    // opcionálisan ide jöhet toast
+                  } finally {
+                    setDeleteConfirm({ open: false, matchId: null, label: '' });
+                  }
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-500 transition-colors"
+              >
+                Törlés
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -20,6 +20,8 @@ export interface Match {
   matchRound: number;
   gameDay: number;
   matchTable: number;
+  // Playoff flag (comes from backend as isPlayoffMatch / is_playoff_match)
+  isPlayoffMatch?: boolean;
   isDelayed: boolean;
   delayedRound?: number | null;
   delayedGameDay?: number | null;
@@ -113,7 +115,14 @@ export const fetchLeagueMatches = createAsyncThunk(
   async (leagueId: string, { rejectWithValue }) => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${baseUrl}/api/matches/league/${leagueId}`, {
+      const params = new URLSearchParams();
+      // Use the same matches endpoint as the admin, so we also get playoff matches
+      params.set('leagueId', leagueId);
+      params.set('playoff', 'all'); // include regular + playoff
+      params.set('page', '1');
+      params.set('pageSize', '1000');
+
+      const response = await fetch(`${baseUrl}/api/matches?${params.toString()}`, {
         credentials: 'include',
       });
 
@@ -122,7 +131,9 @@ export const fetchLeagueMatches = createAsyncThunk(
       }
 
       const data = await response.json();
-      return data as LeagueMatch[];
+      // The /api/matches endpoint returns a paginated object: { items, total, ... }
+      // We only need the items array for the live view.
+      return (data?.items || []) as LeagueMatch[];
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch league matches');
     }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { fetchActiveLiveMatchGroup, fetchLeagueMatches } from "@/lib/features/liveMatchSlice";
-import { useGetMatchMetaQuery, useGetMatchByIdRawQuery } from "@/lib/features/championship/championshipSlice";
+import { useGetMatchMetaQuery, useGetMatchByIdRawQuery, useGetStandingsQuery } from "@/lib/features/championship/championshipSlice";
 import Image from "next/image";
 
 const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
@@ -241,6 +241,11 @@ export default function LiveMatchPage() {
     return null;
   }, [group]);
 
+  // Standings for seed-based fixed pairing label
+  const { data: standings } = useGetStandingsQuery(leagueId || '', {
+    skip: !leagueId,
+  });
+
   useEffect(() => {
     // Fetch on mount
     dispatch(fetchActiveLiveMatchGroup());
@@ -253,20 +258,29 @@ export default function LiveMatchPage() {
     return () => clearInterval(interval);
   }, [dispatch]);
 
-  // Fetch league matches when leagueId is available and refresh every 5 minutes
+  // Fetch league matches when leagueId is available and refresh frequently
   useEffect(() => {
     if (!leagueId) return;
 
     // Initial fetch
     dispatch(fetchLeagueMatches(leagueId));
     
-    // Refresh every 5 minutes (300000ms)
+    // Refresh every 10 seconds so series score and list update automatically
     const interval = setInterval(() => {
       dispatch(fetchLeagueMatches(leagueId));
-    }, 300000); // 5 minutes
+    }, 10000); // 10 seconds
 
     return () => clearInterval(interval);
   }, [dispatch, leagueId]);
+
+  // When the tracked match finishes, refresh league matches immediately
+  useEffect(() => {
+    if (!leagueId || !matchData) return;
+    const match = matchData.match || matchData;
+    if (match?.matchStatus === 'completed') {
+      dispatch(fetchLeagueMatches(leagueId));
+    }
+  }, [matchData, leagueId, dispatch]);
 
   // Calculate poll percentages
   const pollPercentages = useMemo(() => {
@@ -329,11 +343,13 @@ export default function LiveMatchPage() {
     return gameDays;
   }, [group]);
 
-  // Prepare and sort matches for scrolling list (only from active game days)
+  // Prepare and sort matches for scrolling list (only from active game days, playoff matches only)
   const processedMatches = useMemo(() => {
     if (!leagueMatches || leagueMatches.length === 0 || activeGameDays.size === 0) return [];
 
     return leagueMatches
+      // Only include playoff matches in the top-left list
+      .filter((m) => m.match && m.match.isPlayoffMatch === true)
       .map((m) => {
         // Use delayed info if match is delayed
         const displayDate = m.match.isDelayed && m.match.delayedDate
@@ -366,6 +382,78 @@ export default function LiveMatchPage() {
         return a.sortKey - b.sortKey;
       });
   }, [leagueMatches, activeGameDays]);
+
+  // Calculate current playoff series score for next match (based on completed playoff matches)
+  const playoffSeriesScore = useMemo(() => {
+    if (!nextMatch || !leagueMatches || !Array.isArray(leagueMatches)) return null;
+    const currentMatch = nextMatch.match;
+
+    const homeId = currentMatch.homeTeamId;
+    const awayId = currentMatch.awayTeamId;
+
+    let homeWins = 0;
+    let awayWins = 0;
+    let hasPlayoffBetweenTeams = !!currentMatch?.isPlayoffMatch;
+    const matchResults: string[] = [];
+
+    leagueMatches.forEach((m: any) => {
+      const mm = m.match;
+      if (!mm) return;
+      // Same pair of teams, regardless of current home/away
+      const samePair =
+        (mm.homeTeamId === homeId && mm.awayTeamId === awayId) ||
+        (mm.homeTeamId === awayId && mm.awayTeamId === homeId);
+      if (!samePair) return;
+
+      if (mm.isPlayoffMatch === true) {
+        hasPlayoffBetweenTeams = true;
+      }
+
+      if (mm.isPlayoffMatch === true && mm.matchStatus === 'completed') {
+        const rawHomeScore = Number(mm.homeTeamScore ?? 0);
+        const rawAwayScore = Number(mm.awayTeamScore ?? 0);
+        if (rawHomeScore === rawAwayScore) return;
+
+        // Normalize score so that current homeId is always the left side
+        const pairHomeScore =
+          mm.homeTeamId === homeId ? rawHomeScore : rawAwayScore;
+        const pairAwayScore =
+          mm.homeTeamId === homeId ? rawAwayScore : rawHomeScore;
+
+        matchResults.push(`${pairHomeScore}-${pairAwayScore}`);
+
+        const winnerId = rawHomeScore > rawAwayScore ? mm.homeTeamId : mm.awayTeamId;
+        if (winnerId === homeId) homeWins++;
+        else if (winnerId === awayId) awayWins++;
+      }
+    });
+
+    // Only show series score if this pair is actually a playoff párharc
+    if (!hasPlayoffBetweenTeams) return null;
+
+    return { homeWins, awayWins, results: matchResults };
+  }, [nextMatch, leagueMatches]);
+
+  // Fixed pairing label in seed order (independent of home/away for this match)
+  const fixedPairingLabel = useMemo(() => {
+    if (!nextMatch || !standings?.standings || !Array.isArray(standings.standings)) {
+      return null;
+    }
+    const rows = standings.standings as any[];
+    const withSeed = (teamId: string | undefined, name: string) => {
+      if (!teamId) return null;
+      const idx = rows.findIndex((r) => r.teamId === teamId);
+      const seed = idx >= 0 ? idx + 1 : null;
+      return { seed, name };
+    };
+
+    const homeInfo = withSeed(nextMatch.homeTeam.id, nextMatch.homeTeam.name);
+    const awayInfo = withSeed(nextMatch.awayTeam.id, nextMatch.awayTeam.name);
+    if (!homeInfo || !awayInfo || homeInfo.seed == null || awayInfo.seed == null) return null;
+
+    const ordered = [homeInfo, awayInfo].sort((a, b) => (a.seed! - b.seed!));
+    return `${ordered[0].seed}. ${ordered[0].name.toUpperCase()} vs ${ordered[1].seed}. ${ordered[1].name.toUpperCase()}`;
+  }, [nextMatch, standings]);
 
   // Infinite scroll with JavaScript (no restart)
   useEffect(() => {
@@ -669,8 +757,28 @@ export default function LiveMatchPage() {
                 </div>
               </div>
 
-              {/* Live Score */}
+              {/* Live Score + Playoff aggregate */}
               <div className="flex flex-col items-center gap-2">
+                {playoffSeriesScore && (
+                  <div className="flex flex-col items-center mb-1">
+                    <div className="text-gray-100 text-sm font-semibold">
+                      {nextMatch.homeTeam.name} {playoffSeriesScore.homeWins} - {playoffSeriesScore.awayWins} {nextMatch.awayTeam.name}
+                    </div>
+                    {(() => {
+                      const maxGames = 7;
+                      const completed = playoffSeriesScore.results || [];
+                      const allResults = [...completed];
+                      for (let i = completed.length; i < maxGames; i++) {
+                        allResults.push('0-0');
+                      }
+                      return (
+                        <div className="text-gray-300 text-xs">
+                          ({allResults.join(', ')})
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
                 <div className="flex items-center gap-4">
                   <span className="text-white text-4xl font-bold">{trackingStats.liveHomeScore}</span>
                   <span className="text-[#ff5c1a] text-2xl font-bold">-</span>
@@ -760,8 +868,43 @@ export default function LiveMatchPage() {
 
               {/* Match Info */}
               <div className="flex flex-col items-center gap-2">
-                <div className="text-white text-lg font-semibold">VS</div>
-                <div className="text-[#ff5c1a] text-sm font-medium">
+                {(!playoffSeriesScore || !fixedPairingLabel) && (
+                  <div className="text-white text-lg font-semibold">VS</div>
+                )}
+                {fixedPairingLabel && (
+                  <div className="text-gray-300 text-xs uppercase tracking-wide mt-0.5">
+                    {fixedPairingLabel}
+                  </div>
+                )}
+                {playoffSeriesScore && (
+                  <>
+                    <div className="flex items-center gap-6 mt-1">
+                      <span className="text-white text-3xl font-extrabold">
+                        {playoffSeriesScore.homeWins}
+                      </span>
+                      <span className="text-gray-400 text-xs uppercase tracking-wide">
+                        Párharc állása
+                      </span>
+                      <span className="text-white text-3xl font-extrabold">
+                        {playoffSeriesScore.awayWins}
+                      </span>
+                    </div>
+                    {(() => {
+                      const maxGames = 7;
+                      const completed = playoffSeriesScore.results || [];
+                      const allResults = [...completed];
+                      for (let i = completed.length; i < maxGames; i++) {
+                        allResults.push('0-0');
+                      }
+                      return (
+                        <div className="text-gray-300 text-xs mt-1">
+                          ({allResults.join(', ')})
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+                <div className="text-[#ff5c1a] text-sm font-medium mt-1">
                   {formatMatchDate(getEffectiveMatchAt(nextMatch.match))}
                 </div>
                 <div className="text-white text-xl font-bold">
