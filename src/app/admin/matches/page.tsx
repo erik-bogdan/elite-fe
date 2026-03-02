@@ -15,7 +15,7 @@ const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 
 export default function AdminMatchesPage() {
   const { data: seasons } = useGetSeasonsQuery();
-  const { data: championships } = useGetChampionshipsQuery();
+  const { data: championships } = useGetChampionshipsQuery({ includeInactive: true });
 
   // Load filters from localStorage on component mount
   const [seasonId, setSeasonId] = useState<string | ''>(() => {

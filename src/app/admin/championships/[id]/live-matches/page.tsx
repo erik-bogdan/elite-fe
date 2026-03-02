@@ -24,7 +24,7 @@ export default function LiveMatchesPage() {
   const championshipId = typeof params.id === 'string' ? params.id : null;
 
   const { data: seasons } = useGetSeasonsQuery();
-  const { data: championships } = useGetChampionshipsQuery();
+  const { data: championships } = useGetChampionshipsQuery({ includeInactive: true });
   const { data: leagueTeams } = useGetLeagueTeamsQuery(championshipId || '', { skip: !championshipId });
 
   // Filters

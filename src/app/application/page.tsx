@@ -332,17 +332,10 @@ export default function DashboardPage() {
         const { data } = await authClient.getSession();
         if (mounted) setNickname((data?.user?.nickname || data?.user?.name || "").trim());
       } catch {}
-      if (!isLoadingActiveInvite) {
-        const accepted = (activeInvite as any)?.accepted === true;
-        if (activeInvite?.hasInvite && activeInvite?.leagueTeamId && !accepted) {
-          router.replace(`/application/apply/${encodeURIComponent(activeInvite.leagueTeamId)}`);
-          return;
-        }
-        if (mounted) setCheckingInvite(false);
-      }
+      if (!isLoadingActiveInvite && mounted) setCheckingInvite(false);
     })();
     return () => { mounted = false };
-  }, [activeInvite, isLoadingActiveInvite, router]);
+  }, [isLoadingActiveInvite]);
 
   const handleEnterResult = (match: any) => {
     setSelectedMatch(match);
@@ -357,8 +350,28 @@ export default function DashboardPage() {
     );
   }
 
+  const hasPendingInvite = activeInvite?.hasInvite && activeInvite?.leagueTeamId && (activeInvite as any)?.accepted !== true;
+  const inviteChampionship = (activeInvite as any)?.championship;
+  const inviteTitle = inviteChampionship?.name
+    ? [inviteChampionship.name, inviteChampionship.subName].filter(Boolean).join(' ')
+    : 'Aktív szezon';
+
   return (
     <div className="space-y-8">
+      {hasPendingInvite && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl bg-[#ff5c1a]/20 border border-[#ff5c1a]/50 px-4 py-3">
+          <p className="text-white font-medium">
+            Meghívód érkezett a következő bajnokságba: <span className="text-[#ff5c1a] font-semibold">{inviteTitle}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push(`/application/apply/${encodeURIComponent(activeInvite.leagueTeamId!)}`)}
+            className="flex-shrink-0 px-4 py-2 rounded-lg bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white font-semibold transition-colors"
+          >
+            Tovább
+          </button>
+        </div>
+      )}
       {nickname && (
         <div className={`${bebasNeue.className} text-white text-2xl md:text-4xl`}>Üdvözlünk {nickname}!</div>
       )}

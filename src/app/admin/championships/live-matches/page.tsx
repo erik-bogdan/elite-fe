@@ -22,7 +22,7 @@ interface LiveMatchGroup {
 
 export default function LiveMatchesPage() {
   const { data: seasons } = useGetSeasonsQuery();
-  const { data: championships } = useGetChampionshipsQuery();
+  const { data: championships } = useGetChampionshipsQuery({ includeInactive: true });
 
   // Filters
   const [seasonId, setSeasonId] = useState<string | ''>('');

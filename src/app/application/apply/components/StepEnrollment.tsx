@@ -220,7 +220,7 @@ export default function StepEnrollment({ onBack, defaultTeamName, teamId, season
                                 </button>
                             </div>
                         )}
-                        <div className="text-white/80">{championshipName || "ELITE BEERPONG 1. · 2025/2026"} <span className="text-[#FFDB11]">ŐSZ</span></div>
+                        <div className="text-white/80">{championshipName || "ELITE BEERPONG 1. · 2025/2026"} <span className="text-[#FFDB11]">TAVASZ</span></div>
                     </div>
                     <div className="ml-auto">
                         <motion.button

@@ -52,14 +52,15 @@ export interface Championship {
   logo: string;
   slug: string;
   seasonId: string;
-  totalTeams: number;
-  totalMatches: number;
-  completedMatches: number;
+  totalTeams?: number;
+  totalMatches?: number;
+  completedMatches?: number;
   phase: string;
   isStarted?: boolean;
+  isActive?: boolean;
   knockoutRound?: number;
   regularRound?: number;
-  progress: number;
+  progress?: number;
   properties: ChampionshipProperties;
   teams?: {
     name: string;
@@ -112,6 +113,7 @@ export interface CreateChampionshipRequest {
 
 export interface UpdateChampionshipRequest extends Partial<CreateChampionshipRequest> {
   id: string;
+  isActive?: boolean;
 }
 
 interface ChampionshipState {
@@ -138,8 +140,8 @@ export const championshipSlice = createSlice({
   reducers: {
     setAllChampionships: (state, action: PayloadAction<Championship[]>) => {
       state.allChampionships = action.payload;
-      state.activeChampionships = action.payload.filter(c => c.progress < 100);
-      state.completedChampionships = action.payload.filter(c => c.progress === 100);
+      state.activeChampionships = action.payload.filter(c => (c.progress ?? 0) < 100);
+      state.completedChampionships = action.payload.filter(c => (c.progress ?? 0) === 100);
     },
     setSelectedChampionship: (state, action: PayloadAction<Championship | null>) => {
       state.selectedChampionship = action.payload;
@@ -169,8 +171,11 @@ export const championshipApi = createApi({
   }),
   tagTypes: ['Championship'],
   endpoints: (builder) => ({
-    getChampionships: builder.query<Championship[], void>({
-      query: () => '/championship',
+    getChampionships: builder.query<Championship[], { includeInactive?: boolean } | void>({
+      query: (arg) => ({
+        url: '/championship',
+        params: arg?.includeInactive ? { includeInactive: '1' } : undefined,
+      }),
       providesTags: ['Championship'],
       async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
@@ -184,8 +189,11 @@ export const championshipApi = createApi({
         }
       },
     }),
-    getChampionshipStats: builder.query<{ championships: any[] }, void>({
-      query: () => '/championship/stats',
+    getChampionshipStats: builder.query<{ championships: any[] }, { includeInactive?: boolean } | void>({
+      query: (arg) => ({
+        url: '/championship/stats',
+        params: arg?.includeInactive ? { includeInactive: '1' } : undefined,
+      }),
       providesTags: ['Championship'],
     }),
     getChampionshipById: builder.query<Championship, string>({

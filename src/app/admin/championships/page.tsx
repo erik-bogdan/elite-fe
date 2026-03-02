@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Bebas_Neue } from "next/font/google";
-import { FiPlus, FiCalendar, FiUsers, FiAward, FiCheckCircle, FiChevronRight, FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiPlus, FiCalendar, FiUsers, FiAward, FiCheckCircle, FiChevronRight, FiEdit2 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { useGetChampionshipsQuery, useCreateChampionshipMutation, useUpdateChampionshipMutation } from "@/lib/features/championship/championshipSlice";
 import { useGetSeasonsQuery } from "@/lib/features/season/seasonSlice";
@@ -61,7 +61,7 @@ export default function ChampionshipsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const { data: championships } = useGetChampionshipsQuery();
+  const { data: championships } = useGetChampionshipsQuery({ includeInactive: true });
   const { data: seasons, isLoading: isSeasonsLoading } = useGetSeasonsQuery();
   const [createChampionship] = useCreateChampionshipMutation();
   const [updateChampionship] = useUpdateChampionshipMutation();
@@ -115,8 +115,8 @@ export default function ChampionshipsPage() {
   const filtered = selectedSeason
     ? allChampionships.filter(c => String((c as any).seasonId) === selectedSeason.value)
     : allChampionships;
-  const activeChampionships = filtered.filter(c => c.progress < 100);
-  const completedChampionships = filtered.filter(c => c.progress === 100);
+  const activeChampionships = filtered.filter(c => (c.progress ?? 0) < 100);
+  const completedChampionships = filtered.filter(c => (c.progress ?? 0) === 100);
 
   if (isLoading || isSeasonsLoading) {
     return <div>Loading...</div>;
@@ -301,6 +301,7 @@ export default function ChampionshipsPage() {
                 <th className="px-6 py-4 text-left text-[#e0e6f7]">Szezon</th>
                 <th className="px-6 py-4 text-left text-[#e0e6f7]">Győztes</th>
                 <th className="px-6 py-4 text-left text-[#e0e6f7]">Státusz</th>
+                <th className="px-6 py-4 text-left text-[#e0e6f7]">Aktív</th>
                 <th className="px-6 py-4 text-left text-[#e0e6f7]">Műveletek</th>
               </tr>
             </thead>
@@ -333,16 +334,43 @@ export default function ChampionshipsPage() {
                   <td className="px-6 py-4">
                     <span
                       className={`px-3 py-1 rounded-full text-sm ${
-                        championship.progress === 100
+                        (championship.progress ?? 0) === 100
                           ? "bg-green-500/20 text-green-400"
                           : "bg-[#ff5c1a]/20 text-[#ff5c1a]"
                       }`}
                     >
-                      {championship.progress === 100 ? "Completed" : "Active"}
+                      {(championship.progress ?? 0) === 100 ? "Befejezve" : "Folyamatban"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm ${
+                        (championship as any).isActive !== false
+                          ? "bg-green-500/20 text-green-400"
+                          : "bg-gray-500/20 text-gray-400"
+                      }`}
+                    >
+                      {(championship as any).isActive !== false ? "Aktív" : "Inaktív"}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const nextActive = (championship as any).isActive === false;
+                          try {
+                            await updateChampionship({ id: championship.id, isActive: nextActive }).unwrap();
+                            toast.success(nextActive ? 'Bajnokság aktiválva.' : 'Bajnokság inaktiválva.');
+                          } catch {
+                            toast.error(nextActive ? 'Aktiválás sikertelen.' : 'Inaktiválás sikertelen.');
+                          }
+                        }}
+                        className="px-2 py-1 text-sm rounded bg-white/10 hover:bg-white/20 text-white"
+                        title={(championship as any).isActive === false ? 'Aktiválás' : 'Inaktiválás'}
+                      >
+                        {(championship as any).isActive === false ? 'Aktiválás' : 'Inaktív'}
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -351,7 +379,6 @@ export default function ChampionshipsPage() {
                           setEditingId(championship.id);
                           setNameInput(championship.name);
                           setSelectedSeason(seasonId ? { value: seasonId, label: (seasons || []).find(s => String(s.id) === seasonId)?.name || '' } : null);
-                          // Prefill properties from item (fallback defaults)
                           const p = (championship as any).properties || {};
                           setProperties({
                             type: (p.type || 'league'),
@@ -371,17 +398,9 @@ export default function ChampionshipsPage() {
                           setIsModalOpen(true);
                         }}
                         className="p-2 text-[#ff5c1a] hover:text-[#ff7c3a] transition-colors"
+                        title="Szerkesztés"
                       >
                         <FiEdit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // TODO: Implement delete
-                        }}
-                        className="p-2 text-red-500 hover:text-red-600 transition-colors"
-                      >
-                        <FiTrash2 className="w-5 h-5" />
                       </button>
                       <FiChevronRight className="w-5 h-5 text-[#ff5c1a]" />
                     </div>

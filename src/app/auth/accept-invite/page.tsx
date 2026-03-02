@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { authClient } from "@/app/lib/auth-client";
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ interface InviteData {
   fullName: string;
   teamName?: string;
   expiresAt: string;
+  existingUser?: boolean;
 }
 
 export default function AcceptInvitePage() {
@@ -78,12 +80,54 @@ export default function AcceptInvitePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!inviteData || !password || !name) {
-      toast.error('Minden mező kitöltése kötelező');
+
+    if (!inviteData) return;
+
+    if (inviteData.existingUser) {
+      // Existing user: login then link invite
+      if (!password) {
+        toast.error('Add meg a jelszavad');
+        return;
+      }
+      try {
+        setSubmitting(true);
+        const { error } = await authClient.signIn.email(
+          { email: inviteData.email, password },
+          {
+            onError: (ctx) => {
+              toast.error(ctx.error?.message || 'Hibás e-mail vagy jelszó');
+            },
+          }
+        );
+        if (error) return;
+
+        const backend = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555';
+        const linkRes = await fetch(`${backend}/api/players/link-invite`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ token: inviteData.token }),
+        });
+        if (!linkRes.ok) {
+          const err = await linkRes.json();
+          toast.error(err.message || 'Meghívó összekapcsolása sikertelen');
+          return;
+        }
+        toast.success('Meghívó elfogadva.');
+        router.replace('/application');
+      } catch {
+        toast.error('Bejelentkezés sikertelen');
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
+    // New user: registration
+    if (!password || !name) {
+      toast.error('Minden mező kitöltése kötelező');
+      return;
+    }
     if (password.length < 8) {
       toast.error('A jelszó legalább 8 karakter legyen');
       return;
@@ -92,8 +136,6 @@ export default function AcceptInvitePage() {
     try {
       setSubmitting(true);
       const backend = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3555'}`;
-      
-      // Use the new flow for both old and new invites - no Better Auth magic link
       const response = await fetch(`${backend}/api/players/accept-invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,9 +143,9 @@ export default function AcceptInvitePage() {
           token: inviteData.token,
           password,
           email: inviteData.email,
-          name: name.trim(), // This is already in the correct format: lastName firstName
-          nickname: name.trim() // Send the full name as nickname too
-        })
+          name: name.trim(),
+          nickname: name.trim(),
+        }),
       });
 
       if (!response.ok) {
@@ -114,7 +156,7 @@ export default function AcceptInvitePage() {
 
       toast.success('Sikeres regisztráció! Most bejelentkezhetsz.');
       router.replace('/auth/login');
-    } catch (error) {
+    } catch {
       toast.error('Hiba történt a regisztráció során');
     } finally {
       setSubmitting(false);
@@ -148,7 +190,9 @@ export default function AcceptInvitePage() {
         <div className="flex flex-col items-center mb-6">
           <h1 className="text-white text-2xl sm:text-3xl font-bold mb-2">Meghívás elfogadása</h1>
           <p className="text-white/70 text-sm sm:text-base text-center">
-            {inviteData.teamName ? (
+            {inviteData.existingUser ? (
+              <>Már van fiókod – jelentkezz be, utána tudod a meghívót elfogadni.</>
+            ) : inviteData.teamName ? (
               <>Csatlakozz a(z) <strong>{inviteData.teamName}</strong> csapathoz</>
             ) : (
               <>Csatlakozz az ELITE Beerpong rendszeréhez</>
@@ -168,26 +212,30 @@ export default function AcceptInvitePage() {
               />
             </div>
             
-            <div>
-              <label className="block text-white/80 text-sm font-medium mb-2">Teljes név</label>
-              <input
-                type="text"
-                value={name}
-                disabled
-                className="w-full bg-black/40 border border-white/15 text-white/60 rounded-lg px-4 py-3 cursor-not-allowed"
-              />
-            </div>
+            {!inviteData.existingUser && (
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-2">Teljes név</label>
+                <input
+                  type="text"
+                  value={name}
+                  disabled
+                  className="w-full bg-black/40 border border-white/15 text-white/60 rounded-lg px-4 py-3 cursor-not-allowed"
+                />
+              </div>
+            )}
             
             <div>
-              <label className="block text-white/80 text-sm font-medium mb-2">Jelszó</label>
+              <label className="block text-white/80 text-sm font-medium mb-2">
+                {inviteData.existingUser ? 'Jelszó' : 'Jelszó'}
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Jelszó (min. 8 karakter)"
+                placeholder={inviteData.existingUser ? 'Add meg a jelszavad' : 'Jelszó (min. 8 karakter)'}
                 className="w-full bg-black/40 border border-white/15 focus:border-[#ff5c1a] transition-colors text-white rounded-lg px-4 py-3 focus:outline-none"
                 required
-                minLength={8}
+                minLength={inviteData.existingUser ? undefined : 8}
               />
             </div>
             
@@ -196,7 +244,9 @@ export default function AcceptInvitePage() {
               disabled={submitting} 
               className="w-full bg-[#ff5c1a] hover:bg-[#ff7c3a] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg px-4 py-3 font-semibold transition-colors"
             >
-              {submitting ? 'Regisztráció...' : 'Meghívás elfogadása'}
+              {inviteData.existingUser
+                ? (submitting ? 'Bejelentkezés...' : 'Bejelentkezés')
+                : (submitting ? 'Regisztráció...' : 'Meghívás elfogadása')}
             </button>
           </div>
           

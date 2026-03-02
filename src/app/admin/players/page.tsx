@@ -28,7 +28,7 @@ export default function PlayersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const { data: seasons } = useGetSeasonsQuery();
-  const { data: championships } = useGetChampionshipsQuery();
+  const { data: championships } = useGetChampionshipsQuery({ includeInactive: true });
   
   // Load filters from localStorage
   const [selectedSeason, setSelectedSeason] = useState<string | 'all'>(() => {

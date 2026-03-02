@@ -128,7 +128,7 @@ export default function Page({ defaultTeamName, defaultIds, leagueTeamId, initia
                   <motion.div
                     variants={{ hidden: { y: 12, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 180, damping: 20, delay: 0.05 } } }}
                   >
-                    2025 <span className="text-[#FFDB11]">ŐSZ</span>
+                    2025 <span className="text-[#FFDB11]">TAVASZ</span>
                   </motion.div>
                 </motion.div>
               </motion.div>

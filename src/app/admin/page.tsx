@@ -10,7 +10,7 @@ import { FiCalendar, FiUsers, FiAward, FiBarChart } from "react-icons/fi";
 const bebasNeue = Bebas_Neue({ weight: "400", subsets: ["latin"] });
 
 export default function DashboardPage() {
-  const { data: statsData, isLoading } = useGetChampionshipStatsQuery();
+  const { data: statsData, isLoading } = useGetChampionshipStatsQuery({ includeInactive: true });
   const championships = statsData?.championships || [];
 
   // Helper function to get absolute URL for images

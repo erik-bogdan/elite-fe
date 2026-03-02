@@ -103,6 +103,20 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
   const knockoutMatchupsWithMatches = useMemo(() => {
     if (!knockoutBracket || !allMatchesIncludingPlayoff || allMatchesIncludingPlayoff.length === 0) return [];
     
+    let currentMatchups: any[] = [];
+    let requiredKnockoutRound = 1;
+    if (playoffRoundTab === 'quarter') {
+      currentMatchups = knockoutBracket?.quarterfinals || [];
+      requiredKnockoutRound = 1;
+    } else if (playoffRoundTab === 'semi') {
+      currentMatchups = knockoutBracket?.semifinals || [];
+      requiredKnockoutRound = 2;
+    } else if (playoffRoundTab === 'final') {
+      currentMatchups = knockoutBracket?.finals || [];
+      requiredKnockoutRound = 3;
+    }
+    
+    // Map all playoff matches, but only keep those that belong to the current knockout round.
     const playoffMatches = allMatchesIncludingPlayoff
       .filter((row: any) => row?.match?.isPlayoffMatch === true)
       .map((row: any) => ({
@@ -112,7 +126,9 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
         homeScore: row.match?.homeTeamScore,
         awayScore: row.match?.awayTeamScore,
         round: row.match?.matchRound,
-      }));
+        knockoutRound: row.match?.gameDay, // 1=quarter, 2=semi, 3=final
+      }))
+      .filter((m: any) => (m.knockoutRound || 0) === requiredKnockoutRound);
     
     const matchupMap = new Map<string, any[]>();
     
@@ -123,15 +139,6 @@ export default function DetailedTablePage({ params }: { params: Promise<{ id: st
       }
       matchupMap.get(teamIds)!.push(m);
     });
-    
-    let currentMatchups: any[] = [];
-    if (playoffRoundTab === 'quarter') {
-      currentMatchups = knockoutBracket?.quarterfinals || [];
-    } else if (playoffRoundTab === 'semi') {
-      currentMatchups = knockoutBracket?.semifinals || [];
-    } else if (playoffRoundTab === 'final') {
-      currentMatchups = knockoutBracket?.finals || [];
-    }
     
     return currentMatchups.map((matchup: any) => {
       const teamIds = [matchup.homeTeamId, matchup.awayTeamId].sort().join('-');
