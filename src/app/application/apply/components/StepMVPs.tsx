@@ -31,6 +31,7 @@ const teamLogoMap: Record<string, string> = {
   "KPS-FAKTOR": "/uploads/history/kps-faktor.png",
   "SH-KPS": "/uploads/history/sh-kps.png",
   "GERI": "/uploads/history/geri.png",
+  "HESSZ": "/uploads/team-logos/hessz-IsXtKpyUSsJ99lylGWAPo.png",
 };
 
 const abs = (path?: string) => {
@@ -59,6 +60,7 @@ const playerTeams: Record<string, string[]> = {
   "SERES ARTÚR": ["BROMANCE"],
   "ANTAL NORBERT": ["KPS-STEELCITY"],
   "BODNÁR TAMÁS": ["KAKIMAKI"],
+  "BODNÁR DÁNIEL": ["HESSZ"],
   "FODOR BENCE": ["HACCATÖLTELÉKEK"],
   "HEGEDŰS RÓBERT": ["TE IS FIAM, SHARK!?"],
   "JÁNDI FERENC": ["KPS-B1"],
