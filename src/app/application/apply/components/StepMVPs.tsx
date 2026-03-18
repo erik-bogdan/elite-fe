@@ -70,14 +70,14 @@ const playerTeams: Record<string, string[]> = {
 
 // Minta adat – töltsd a pontos értékekkel a képen szereplő rovátkák szerint
 const rows: MVPRow[] = [
-  { name: "BOGDÁN ERIK", day: 13, final: 6 },
+  { name: "BOGDÁN ERIK", day: 14, final: 7 },
   { name: "JUHÁSZ ÁRPÁD", day: 7, final: 1 },
+  { name: "BOGDÁN KRISZTIÁN", day: 7, final: 0 },
   { name: "BENKOVICS MÁRK", day: 5, final: 1 },
-  { name: "BOGDÁN KRISZTIÁN", day: 6, final: 0 },
   { name: "BUNDSCHUH BALÁZS", day: 6, final: 0 },
   { name: "TÓTH GERGELY", day: 3, final: 1 },
+  { name: "PRINCZ TAMÁS", day: 4, final: 0 },
   { name: "TAKÁTS IMRE", day: 4, final: 0 },
-  { name: "PRINCZ TAMÁS", day: 3, final: 0 },
   { name: "KÁLPY MÁTYÁS", day: 1, final: 1 },
   { name: "BENKOVICS MÁTÉ", day: 2, final: 0 },
   { name: "CSÁKI VIKTOR", day: 2, final: 0 },
@@ -85,6 +85,7 @@ const rows: MVPRow[] = [
   { name: "TÓTH ÁDÁM", day: 2, final: 0 },
   { name: "SERES ARTÚR", day: 0, final: 1 },
   { name: "ANTAL NORBERT", day: 1, final: 0 },
+  { name: "BODNÁR DÁNIEL", day: 1, final: 0 },
   { name: "BODNÁR TAMÁS", day: 1, final: 0 },
   { name: "FODOR BENCE", day: 1, final: 0 },
   { name: "HEGEDŰS RÓBERT", day: 1, final: 0 },

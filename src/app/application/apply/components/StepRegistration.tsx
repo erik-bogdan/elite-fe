@@ -57,7 +57,7 @@ export default function StepRegistration({ onBack, onNext, registrationClose, re
           </Line>
           <Line>KORÁBBI ESEMÉNYEINKEN SZEMÉLYESEN, VAGY ÁTUTALÁSSAL TUDTOK NEVEZNI.</Line>
           <Line>
-            UTALÁS: (ILLÉS ROLAND): <span className="text-[#FFDB11]">11600006-000000000-29816914</span> SZÁMLASZÁMRA.
+            UTALÁS: (ILLÉS ROLAND): <span className="text-[#FFDB11]">11600006-00000000-29816914</span> SZÁMLASZÁMRA.
           </Line>
           <Line>EBBEN AZ ESETBEN KÉRJÜK, HOGY A KÖZLEMÉNYBEN ÍRJÁTOK MEG A CSAPAT NEVÉT.</Line>
         </div>

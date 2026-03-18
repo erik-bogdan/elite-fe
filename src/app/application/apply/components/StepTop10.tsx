@@ -72,6 +72,7 @@ const bestCupRatio: TopRow[] = [
 const bestWinRate: TopRow[] = [
   { team: "AMÍG BEEROM", value: "93%", season: "2023-2024" },
   { team: "AMÍG BEEROM", value: "93%", season: "2024-2025" },
+  { team: "AMÍG BEEROM", value: "91%", season: "2025 ŐSZ" },
   { team: "MONEYBALL", value: "90%", season: "2016-2017" },
   { team: "GIANTS-KPS", value: "87%", season: "2017-2018" },
   { team: "ALBERTIRSAI BPC", value: "87%", season: "2023-2024" },

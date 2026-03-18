@@ -38,7 +38,7 @@ export default function StepPrizes({ onBack, onNext, championshipName, firstPriz
             {firstPrizeValue ? (<span className="text-[#FFDB11]">{firstPrizeValue}</span>) : null}
           </Line>
           <Line>
-            {secondPrizeText || 'A második helyezett csapat pénznyereményben részesül.'} {secondPrizeValue ? (<span className="text-[#FFDB11]">{secondPrizeValue}</span>) : null}
+            {secondPrizeText || 'A második helyezett csapat pénznyereményben részesül.'} <br /> {secondPrizeValue ? (<span className="text-[#FFDB11]">{secondPrizeValue}</span>) : null}
           </Line>
           <Line>
             {!secondPrizeValue ? (
