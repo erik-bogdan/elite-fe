@@ -44,6 +44,38 @@ interface MatchDay {
   };
 }
 
+type SafeLogoProps = {
+  src?: string | null;
+  alt: string;
+  width: number;
+  height: number;
+  className?: string;
+};
+
+function SafeLogo({ src, alt, width, height, className }: SafeLogoProps) {
+  const resolvedSrc = src && src.trim().length > 0 ? src : "/elitelogo.png";
+  const [currentSrc, setCurrentSrc] = useState(resolvedSrc);
+
+  useEffect(() => {
+    setCurrentSrc(resolvedSrc);
+  }, [resolvedSrc]);
+
+  return (
+    <Image
+      src={currentSrc}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      onError={() => {
+        if (currentSrc !== "/elitelogo.png") {
+          setCurrentSrc("/elitelogo.png");
+        }
+      }}
+    />
+  );
+}
+
 // Mock data
 const mockMatchDays: MatchDay[] = [
   {
@@ -329,7 +361,7 @@ export default function ChampionshipView() {
                 <tr key={s.teamId} className="text-white">
                   <td className="py-2 pr-4">{(typeof startRank === 'number' ? startRank + idx : s.rank)}</td>
                   <td className="py-2 pr-4 flex items-center gap-2">
-                    <Image src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
+                    <SafeLogo src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
                     <button
                       type="button"
                       onClick={() => router.push(`/admin/teams/${s.teamId}/view`)}
@@ -401,7 +433,7 @@ export default function ChampionshipView() {
                     </div>
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <div className="flex items-center gap-2 min-w-0">
-                        <Image src={abs(match.home?.logo) || '/elitelogo.png'} alt={match.home?.name || ''} width={28} height={28} className="rounded-full border border-white/10" />
+                        <SafeLogo src={abs(match.home?.logo) || '/elitelogo.png'} alt={match.home?.name || ''} width={28} height={28} className="rounded-full border border-white/10" />
                         <span className="text-white font-semibold truncate">{match.home?.name}</span>
                       </div>
                       <div className={`${bebasNeue.className} text-2xl text-white`}>
@@ -417,7 +449,7 @@ export default function ChampionshipView() {
                       </div>
                       <div className="flex items-center gap-2 min-w-0 justify-end">
                         <span className="text-white font-semibold truncate text-right">{match.away?.name}</span>
-                        <Image src={abs(match.away?.logo) || '/elitelogo.png'} alt={match.away?.name || ''} width={28} height={28} className="rounded-full border border-white/10" />
+                        <SafeLogo src={abs(match.away?.logo) || '/elitelogo.png'} alt={match.away?.name || ''} width={28} height={28} className="rounded-full border border-white/10" />
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs text-white/70">
@@ -896,7 +928,7 @@ export default function ChampionshipView() {
       {/* Championship Header */}
       <div className="flex items-center gap-6 mb-8">
         <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#ff5c1a]">
-          <Image
+          <SafeLogo
             src={abs(championship.logo) || "/elitelogo.png"}
             alt={championship.name}
             width={96}
@@ -1089,7 +1121,7 @@ export default function ChampionshipView() {
                 return (
                   <tr key={`row-${t.id}`} className="text-white">
                     <td className="py-2 pr-4">
-                      <Image src={logo} alt={t.name} width={36} height={36} className="rounded-full border border-white/10" />
+                      <SafeLogo src={logo} alt={t.name} width={36} height={36} className="rounded-full border border-white/10" />
                     </td>
                     <td className="py-2 pr-4">
                       <button
@@ -1371,7 +1403,7 @@ export default function ChampionshipView() {
                                           </span>
                                         )}
                                         {item.team && (
-                                          <Image 
+                                          <SafeLogo 
                                             src={item.team.logo || '/elitelogo.png'} 
                                             alt={item.team.name} 
                                             width={48} 
@@ -1567,7 +1599,7 @@ export default function ChampionshipView() {
                                           </span>
                                         )}
                                         {item.team && (
-                                          <Image 
+                                          <SafeLogo 
                                             src={item.team.logo || '/elitelogo.png'} 
                                             alt={item.team.name} 
                                             width={48} 
@@ -1732,7 +1764,7 @@ export default function ChampionshipView() {
                     <tr key={s.teamId} className="text-white">
                       <td className="py-2 pr-4">{s.rank}</td>
                       <td className="py-2 pr-4 flex items-center gap-2">
-                        <Image src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
+                        <SafeLogo src={abs(s.logo) || '/elitelogo.png'} alt={s.name} width={24} height={24} className="rounded-full border border-white/10" />
                         <button
                           type="button"
                           onClick={() => router.push(`/admin/teams/${s.teamId}/view`)}
@@ -2022,13 +2054,13 @@ export default function ChampionshipView() {
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
-                      <Image src={matchup.homeTeamLogo || "/elitelogo.png"} alt={matchup.homeTeamName} width={40} height={40} className="rounded-full border-2 border-white/20" />
+                      <SafeLogo src={matchup.homeTeamLogo || "/elitelogo.png"} alt={matchup.homeTeamName} width={40} height={40} className="rounded-full border-2 border-white/20" />
                       <span className={`${bebasNeue.className} text-xl text-white`}>{matchup.homeTeamName}</span>
                     </div>
                     <span className={`${bebasNeue.className} text-2xl text-[#ff5c1a]`}>VS</span>
                     <div className="flex items-center gap-3">
                       <span className={`${bebasNeue.className} text-xl text-white`}>{matchup.awayTeamName}</span>
-                      <Image src={matchup.awayTeamLogo || "/elitelogo.png"} alt={matchup.awayTeamName} width={40} height={40} className="rounded-full border-2 border-white/20" />
+                      <SafeLogo src={matchup.awayTeamLogo || "/elitelogo.png"} alt={matchup.awayTeamName} width={40} height={40} className="rounded-full border-2 border-white/20" />
                     </div>
                     <span className="text-white/60 text-sm ml-4">
                       {matchup.matches.length} meccs
@@ -2071,12 +2103,12 @@ export default function ChampionshipView() {
                             >
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
-                                  <Image src={match.homeTeam.logo || "/elitelogo.png"} alt={match.homeTeam.name} width={32} height={32} className="rounded-full" />
+                                  <SafeLogo src={match.homeTeam.logo || "/elitelogo.png"} alt={match.homeTeam.name} width={32} height={32} className="rounded-full" />
                                   <span className="text-white">{match.homeTeam.name}</span>
                                 </div>
                                 <span className="text-white">-</span>
                                 <div className="flex items-center gap-2">
-                                  <Image src={match.awayTeam.logo || "/elitelogo.png"} alt={match.awayTeam.name} width={32} height={32} className="rounded-full" />
+                                  <SafeLogo src={match.awayTeam.logo || "/elitelogo.png"} alt={match.awayTeam.name} width={32} height={32} className="rounded-full" />
                                   <span className="text-white">{match.awayTeam.name}</span>
                                 </div>
                                 <span className="text-[#ff5c1a]">
@@ -2237,12 +2269,12 @@ export default function ChampionshipView() {
                                       <button onClick={() => toggleMatch(keyId)} className="w-full flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2">
-                                            <Image src={match.homeTeam.logo || "/elitelogo.png"} alt={match.homeTeam.name} width={32} height={32} className="rounded-full" />
+                                            <SafeLogo src={match.homeTeam.logo || "/elitelogo.png"} alt={match.homeTeam.name} width={32} height={32} className="rounded-full" />
                             <span className="text-white">{match.homeTeam.name}</span>
                           </div>
                                           <span className="text-white">-</span>
                           <div className="flex items-center gap-2">
-                                            <Image src={match.awayTeam.logo || "/elitelogo.png"} alt={match.awayTeam.name} width={32} height={32} className="rounded-full" />
+                                            <SafeLogo src={match.awayTeam.logo || "/elitelogo.png"} alt={match.awayTeam.name} width={32} height={32} className="rounded-full" />
                             <span className="text-white">{match.awayTeam.name}</span>
                           </div>
                                           <span className="text-[#ff5c1a]">{typeof match.homeScore === 'number' && typeof match.awayScore === 'number' ? `(${match.homeScore} - ${match.awayScore}${isOT ? ' OT' : ''})` : ''}</span>

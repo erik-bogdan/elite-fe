@@ -238,7 +238,7 @@ export const championshipApi = createApi({
       }),
       invalidatesTags: ['Championship']
     }),
-    previewSchedule: builder.mutation<{ schedule: any[] }, { id: string; teams: string[]; matchesPerDay: number[]; startTime: string; matchDuration: number; tables: number; dayDates?: string[] }>({
+    previewSchedule: builder.mutation<{ schedule: any[] }, { id: string; teams: string[]; matchesPerDay: number[]; startTime: string; matchDuration: number; tables: number; dayDates?: string[]; matchesBetweenOpponents?: number }>({
       query: ({ id, ...payload }) => ({
         url: `/championship/${id}/generate-schedule`,
         method: 'POST',

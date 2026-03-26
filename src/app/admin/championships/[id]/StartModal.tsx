@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Bebas_Neue } from "next/font/google";
 import { usePreviewScheduleMutation, useSaveScheduleMutation } from "@/lib/features/championship/championshipSlice";
 import { toast } from "sonner";
@@ -13,13 +13,91 @@ export default function StartModal({ id, isOpen, onClose, teamNames }: { id: str
   const [startTime, setStartTime] = useState<string>("20:00");
   const [duration, setDuration] = useState<number>(40);
   const [tables, setTables] = useState<number>(6);
+  const [matchesBetweenOpponents, setMatchesBetweenOpponents] = useState<number>(2);
   const [dayDates, setDayDates] = useState<string[]>(["", "", "", ""]);
   const [previewSchedule, { data, isLoading }] = usePreviewScheduleMutation();
   const [saveSchedule, { isLoading: isSaving }] = useSaveScheduleMutation();
+  const { teamMatchSummary, summaryDays } = useMemo(() => {
+    const daySet = new Set<number>();
+    const counts = new Map<string, { matches: number; byDay: Record<number, number> }>();
+
+    for (const match of (data?.schedule || []) as any[]) {
+      const home = String(match?.home || "").trim();
+      const away = String(match?.away || "").trim();
+      const day = Number(match?.day);
+      const normalizedDay = Number.isFinite(day) && day > 0 ? Math.floor(day) : null;
+      if (normalizedDay !== null) daySet.add(normalizedDay);
+
+      if (home) {
+        const existing = counts.get(home) || { matches: 0, byDay: {} };
+        existing.matches += 1;
+        if (normalizedDay !== null) {
+          existing.byDay[normalizedDay] = (existing.byDay[normalizedDay] || 0) + 1;
+        }
+        counts.set(home, existing);
+      }
+      if (away) {
+        const existing = counts.get(away) || { matches: 0, byDay: {} };
+        existing.matches += 1;
+        if (normalizedDay !== null) {
+          existing.byDay[normalizedDay] = (existing.byDay[normalizedDay] || 0) + 1;
+        }
+        counts.set(away, existing);
+      }
+    }
+
+    const orderedDays = Array.from(daySet).sort((a, b) => a - b);
+    const summary = Array.from(counts.entries())
+      .map(([team, value]) => ({ team, matches: value.matches, byDay: value.byDay }))
+      .sort((a, b) => b.matches - a.matches || a.team.localeCompare(b.team));
+
+    return { teamMatchSummary: summary, summaryDays: orderedDays };
+  }, [data?.schedule]);
+
+  const exportScheduleToExcel = async () => {
+    try {
+      const schedule = [...(data?.schedule || [])].sort((a: any, b: any) => (a.globalOrder ?? 0) - (b.globalOrder ?? 0));
+      if (!schedule.length) {
+        toast.error("Nincs exportálható menetrend. Először generálj menetrendet.");
+        return;
+      }
+
+      const XLSX = await import("xlsx");
+      const rows = schedule.map((m: any) => ({
+        "#": (m.globalOrder ?? 0) + 1,
+        "Idő": m.startTime || "",
+        "Hazai": m.home || "",
+        "Vendég": m.away || "",
+        "Asztal": m.table || "",
+        "Kör": (typeof m.round === "number") ? m.round : ((typeof m.slot === "number") ? m.slot + 1 : ""),
+        "Nap": m.day || "",
+        "Dátum": m.date || "",
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Menetrend");
+
+      const fileDate = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `championship-schedule-${id}-${fileDate}.xlsx`);
+      toast.success("Excel export elkészült.");
+    } catch (e: any) {
+      toast.error(e?.message || "Excel export hiba");
+    }
+  };
 
   const regen = async () => {
     try {
-      await previewSchedule({ id, teams: teamNames, matchesPerDay: perDay, startTime, matchDuration: duration, tables, dayDates }).unwrap();
+      await previewSchedule({
+        id,
+        teams: teamNames,
+        matchesPerDay: perDay,
+        startTime,
+        matchDuration: duration,
+        tables,
+        dayDates,
+        matchesBetweenOpponents
+      }).unwrap();
     } catch (e: any) {
       const msg = e?.data?.message || e?.message || 'Hiba történt a generálás során';
       toast.error(msg);
@@ -28,8 +106,8 @@ export default function StartModal({ id, isOpen, onClose, teamNames }: { id: str
 
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#001a3a] rounded-2xl p-6 w-full max-w-5xl border-2 border-[#ff5c1a]">
+    <div className="fixed inset-0 z-50 flex items-start md:items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
+      <div className="bg-[#001a3a] rounded-2xl p-6 w-full max-w-5xl border-2 border-[#ff5c1a] max-h-[92vh] overflow-y-auto my-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className={`${bebasNeue.className} text-2xl text-white`}>Bajnokság indítása</h3>
           <button onClick={onClose} className="text-white/80 hover:text-white">Bezár</button>
@@ -74,6 +152,17 @@ export default function StartModal({ id, isOpen, onClose, teamNames }: { id: str
             <label className="block text-white/80 text-sm mb-1">Asztalok</label>
             <input required type="number" min={1} value={tables} onChange={(e) => setTables(parseInt(e.target.value || '1'))} className="w-full px-3 py-2 rounded bg-black/40 border border-white/10 text-white" />
           </div>
+          <div>
+            <label className="block text-white/80 text-sm mb-1">Páronkénti meccsek</label>
+            <input
+              required
+              type="number"
+              min={1}
+              value={matchesBetweenOpponents}
+              onChange={(e) => setMatchesBetweenOpponents(parseInt(e.target.value || '1'))}
+              className="w-full px-3 py-2 rounded bg-black/40 border border-white/10 text-white"
+            />
+          </div>
           <div className="flex items-end">
             <button onClick={regen} className="px-4 py-2 bg-[#ff5c1a] hover:bg-[#ff7c3a] text-white rounded">Generálás</button>
           </div>
@@ -81,7 +170,16 @@ export default function StartModal({ id, isOpen, onClose, teamNames }: { id: str
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <h4 className={`${bebasNeue.className} text-xl text-white`}>Preview</h4>
-            <button onClick={regen} disabled={isLoading} className="px-3 py-1 rounded bg-black/30 border border-[#ff5c1a]/40 text-white hover:bg-black/40">Újragenerálás</button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportScheduleToExcel}
+                disabled={!data?.schedule?.length}
+                className="px-3 py-1 rounded bg-black/30 border border-emerald-400/40 text-white hover:bg-black/40 disabled:opacity-50"
+              >
+                Excel export
+              </button>
+              <button onClick={regen} disabled={isLoading} className="px-3 py-1 rounded bg-black/30 border border-[#ff5c1a]/40 text-white hover:bg-black/40">Újragenerálás</button>
+            </div>
           </div>
           <div className="relative max-h-[50vh] overflow-auto border border-white/10 rounded">
             <table className="min-w-full divide-y divide-white/10">
@@ -112,6 +210,40 @@ export default function StartModal({ id, isOpen, onClose, teamNames }: { id: str
                 ))}
                 {(!data?.schedule || data.schedule.length === 0) && (
                   <tr><td colSpan={8} className="text-white/70 py-3 px-3">Nincs még generált menetrend</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 border border-white/10 rounded overflow-hidden">
+            <div className="px-3 py-2 bg-black/20 text-white/90 font-medium">
+              Összesítő - meccsszám csapatonként
+            </div>
+            <table className="min-w-full divide-y divide-white/10">
+              <thead className="bg-[#001a3a]">
+                <tr className="text-left text-white">
+                  <th className="py-2 px-3">Csapat</th>
+                  <th className="py-2 px-3">Meccsek száma</th>
+                  {summaryDays.map((day) => (
+                    <th key={day} className="py-2 px-3">{day}. nap</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {teamMatchSummary.map((row) => (
+                  <tr key={row.team} className="text-white/90 border-t border-white/10">
+                    <td className="py-2 px-3">{row.team}</td>
+                    <td className="py-2 px-3">{row.matches}</td>
+                    {summaryDays.map((day) => (
+                      <td key={`${row.team}-${day}`} className="py-2 px-3">{row.byDay[day] || 0}</td>
+                    ))}
+                  </tr>
+                ))}
+                {teamMatchSummary.length === 0 && (
+                  <tr>
+                    <td colSpan={2 + summaryDays.length} className="text-white/70 py-3 px-3">
+                      Nincs még generált menetrend.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
