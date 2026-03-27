@@ -1100,7 +1100,8 @@ function UpcomingMatches() {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Europe/Budapest'
+      hour12: false,
+      timeZone: 'UTC'
     });
   };
 
