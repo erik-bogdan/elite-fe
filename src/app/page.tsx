@@ -119,6 +119,15 @@ const championsData = [
     seasonSummary: "Az AMÍG BEEROM hatodik bajnoki címe sorban! Meg tudták ismételni az előző szezonban elért 93%-os győzelmi arányt.",
     results: { wins: 9, losses: 1, cupRatio: "+31" }
   },
+  { 
+    season: "2025 ŐSZ", 
+    champion: "AMÍG BEEROM", 
+    logo: "/uploads/history/amig-beerom.png",
+    championshipImage: "/uploads/history-main/12.png",
+    members: ["ILLÉS ROLAND", "BOGDÁN ERIK", "BOGDÁN KRISZTIÁN"],
+    seasonSummary: "Az AMÍG BEEROM hetedik bajnoki címe! Az alapszakaszt 2 vereséggel zárták, és mindössze 1 meccsen kaptak ki a playoff során!",
+    results: { wins: 9, losses: 1, cupRatio: "+31" }
+  },
 ];
 
 const abs = (path?: string) => {
