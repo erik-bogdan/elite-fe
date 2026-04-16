@@ -5,7 +5,7 @@ import Image from "next/image";
 import { toBackendUrl } from "@/lib/utils";
 import { useParams } from "next/navigation";
 import { useReactTable, getCoreRowModel, flexRender, createColumnHelper, ColumnDef } from "@tanstack/react-table";
-import { FiUpload, FiEye, FiMoreVertical, FiUserPlus } from "react-icons/fi";
+import { FiUpload, FiDownload, FiEye, FiMoreVertical, FiUserPlus } from "react-icons/fi";
 import ActionMenu from "../../ActionMenu";
 import AddPlayerModal from "../../../players/components/AddPlayerModal";
 import { useDeletePlayerMutation, useGetTeamByIdQuery, useGetTeamPlayersBySeasonQuery, useUnassignPlayerFromTeamSeasonMutation, useGetAvailablePlayersForSeasonQuery, useAssignPlayerToTeamSeasonMutation, useUpdateTeamMutation, useUploadTeamLogoMutation } from "@/lib/features/apiSlice";
@@ -188,6 +188,33 @@ export default function TeamViewPage() {
     }
   }
 
+  async function handleLogoDownload() {
+    try {
+      const rawLogo = team?.logo as string | undefined;
+      const logoUrl = toBackendUrl(rawLogo || undefined);
+      if (!logoUrl) return;
+
+      const response = await fetch(logoUrl, { credentials: 'include' });
+      if (!response.ok) throw new Error('Logo letöltése sikertelen');
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      const fallbackExt = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : blob.type.includes('svg') ? 'svg' : 'jpg';
+      const fileNameFromPath = rawLogo ? rawLogo.split('/').pop() : '';
+      const safeName = fileNameFromPath && fileNameFromPath.includes('.') ? fileNameFromPath : `${(team?.name || 'team-logo').toString().replace(/\s+/g, '-').toLowerCase()}.${fallbackExt}`;
+
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = safeName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error('Logo letöltés nem sikerült', error);
+    }
+  }
+
   return (
     <div className="w-full max-w-5xl mx-auto py-10 space-y-10">
       {/* Team Header & Logo Upload */}
@@ -204,6 +231,15 @@ export default function TeamViewPage() {
             <FiUpload className="text-white w-5 h-5" />
             <input type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
           </label>
+          <button
+            type="button"
+            onClick={handleLogoDownload}
+            disabled={!team?.logo}
+            className="absolute bottom-2 left-2 bg-[#002b6b] p-2 rounded-full shadow-lg border border-[#ff5c1a]/70 hover:bg-[#003a88] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Logo letöltése"
+          >
+            <FiDownload className="text-white w-5 h-5" />
+          </button>
         </div>
         <div className="flex-1 flex flex-col gap-2 items-center md:items-start">
           <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-wide">{team?.name ?? "Csapat"}</h1>
